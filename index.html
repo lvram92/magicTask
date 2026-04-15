@@ -1,0 +1,951 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EduQuest - Sistema Educacional Gamificado</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --pixel-font: 'Press Start 2P', cursive;
+            --main-font: 'Inter', sans-serif;
+        }
+        body { font-family: var(--main-font); background-color: #f0f2f5; }
+        .pixel-text { font-family: var(--pixel-font); font-size: 0.7rem; }
+        .pixel-border { border: 4px solid #000; box-shadow: 4px 4px 0px rgba(0,0,0,0.2); }
+        .bg-quest { background-color: #4a3bcf; }
+        
+        /* Personagem Customizável */
+        .character-preview {
+            width: 150px;
+            height: 150px;
+            background: #e2e8f0;
+            position: relative;
+            image-rendering: pixelated;
+        }
+        
+        /* Animações */
+        @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
+        .animate-float { animation: bounce 2s infinite ease-in-out; }
+    </style>
+</head>
+<body class="bg-gray-100">
+
+    <div id="app">
+        <!-- Telas serão injetadas aqui via JavaScript -->
+    </div>
+
+    <script>
+        // --- Estado Global do Sistema ---
+        const state = {
+            currentView: 'login',
+            userType: null,
+            user: null,
+            tasks: [
+                { id: 1, title: 'Equações de 2º Grau', subject: 'Matemática', xp: 150, status: 'pending', questions: [
+                    { q: 'Qual o valor de x em x² - 4 = 0?', options: ['2 e -2', '0', '4', '1'], correct: 0 }
+                ]},
+                { id: 2, title: 'Análise de Texto: Machado de Assis', subject: 'Português', xp: 100, status: 'pending', questions: [
+                    { q: 'Quem escreveu Dom Casmurro?', options: ['Clarice Lispector', 'Machado de Assis', 'Érico Veríssimo', 'Monteiro Lobato'], correct: 1 }
+                ]}
+            ],
+            students: [
+                { ra: '123', name: 'Laurie Vitória', level: 5, xp: 450, characterName: 'Maga da Lógica', charData: { hair: 'black', outfit: 'blue', weapon: 'staff' }, tasksDone: [] }
+            ],
+            classes: ['1ºA', '1ºB', '2ºC', '3ºA']
+        };
+
+        // --- Gerenciador de Visualização ---
+        function render() {
+            const app = document.getElementById('app');
+            app.innerHTML = '';
+
+            switch(state.currentView) {
+                case 'login': app.innerHTML = renderLogin(); break;
+                case 'register_student': app.innerHTML = renderRegisterStudent(); break;
+                case 'register_teacher': app.innerHTML = renderRegisterTeacher(); break;
+                case 'student_home': app.innerHTML = renderStudentHome(); break;
+                case 'student_character': app.innerHTML = renderStudentCharacter(); break;
+                case 'student_profile': app.innerHTML = renderStudentProfile(); break;
+                case 'student_task': app.innerHTML = renderTaskPage(); break;
+                case 'teacher_home': app.innerHTML = renderTeacherHome(); break;
+                case 'teacher_classes': app.innerHTML = renderTeacherClasses(); break;
+                case 'teacher_analysis': app.innerHTML = renderTeacherAnalysis(); break;
+                case 'teacher_create_task': app.innerHTML = renderCreateTask(); break;
+                case 'teacher_student_detail': app.innerHTML = renderTeacherStudentDetail(); break;
+            }
+        }
+
+        // --- Lógica de Logout ---
+        window.handleLogout = () => {
+            state.user = null;
+            state.userType = null;
+            state.currentView = 'login';
+            render();
+        };
+
+        // --- Templates de Componentes ---
+
+        function renderLogin() {
+            return `
+            <div class="min-h-screen flex flex-col items-center justify-center p-4">
+                <div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-md pixel-border">
+                    <h1 class="pixel-text text-xl mb-6 text-center text-indigo-600">EduQuest Login</h1>
+                    
+                    <div class="flex mb-6 space-x-2">
+                        <button onclick="state.userType='student'; render()" class="flex-1 py-2 ${state.userType !== 'teacher' ? 'bg-indigo-600 text-white' : 'bg-gray-200'} rounded-lg font-bold">Aluno</button>
+                        <button onclick="state.userType='teacher'; render()" class="flex-1 py-2 ${state.userType === 'teacher' ? 'bg-indigo-600 text-white' : 'bg-gray-200'} rounded-lg font-bold">Professor</button>
+                    </div>
+
+                    <div class="space-y-4">
+                        <input type="text" id="login_id" placeholder="${state.userType === 'teacher' ? 'CPF' : 'RA'}" class="w-full p-3 border rounded-lg outline-none focus:ring-2 focus:ring-indigo-400">
+                        <input type="password" id="login_pass" placeholder="Senha" class="w-full p-3 border rounded-lg outline-none focus:ring-2 focus:ring-indigo-400">
+                        <button onclick="handleLoginAction()" class="w-full bg-indigo-600 text-white py-3 rounded-lg font-bold hover:bg-indigo-700 transition">ENTRAR</button>
+                    </div>
+
+                    <p class="mt-6 text-center text-sm">
+                        Não tem conta? 
+                        <a href="#" onclick="state.currentView = state.userType === 'teacher' ? 'register_teacher' : 'register_student'; render()" class="text-indigo-600 font-bold underline">Cadastre-se</a>
+                    </p>
+                </div>
+            </div>`;
+        }
+
+        function renderRegisterStudent() {
+            return `
+            <div class="min-h-screen p-6 bg-indigo-50 flex justify-center">
+                <div class="bg-white p-8 rounded-xl shadow-lg w-full max-w-lg">
+                    <h2 class="pixel-text text-lg mb-6">Cadastro de Aluno</h2>
+                    <form class="space-y-4" onsubmit="event.preventDefault(); navigate('login')">
+                        <input type="text" placeholder="Nome Completo" class="w-full p-3 border rounded" required>
+                        <input type="text" placeholder="RA" class="w-full p-3 border rounded" required>
+                        <select class="w-full p-3 border rounded">
+                            <option>1º Ano Ensino Médio</option>
+                            <option>2º Ano Ensino Médio</option>
+                            <option>3º Ano Ensino Médio</option>
+                        </select>
+                        <input type="date" class="w-full p-3 border rounded" required>
+                        <input type="email" placeholder="E-mail" class="w-full p-3 border rounded" required>
+                        <input type="password" placeholder="Senha" class="w-full p-3 border rounded" required>
+                        <button class="w-full bg-green-500 text-white py-3 rounded-lg font-bold">CRIAR CONTA</button>
+                    </form>
+                    <button onclick="navigate('login')" class="mt-4 text-gray-500 text-sm">Voltar</button>
+                </div>
+            </div>`;
+        }
+
+        function renderRegisterTeacher() {
+            return `
+            <div class="min-h-screen p-6 bg-indigo-50 flex justify-center">
+                <div class="bg-white p-8 rounded-xl shadow-lg w-full max-w-lg">
+                    <h2 class="pixel-text text-lg mb-6">Cadastro de Professor</h2>
+                    <form class="space-y-4" onsubmit="event.preventDefault(); navigate('login')">
+                        <input type="text" placeholder="Nome Completo" class="w-full p-3 border rounded" required>
+                        <input type="text" placeholder="CPF" class="w-full p-3 border rounded" required>
+                        <select class="w-full p-3 border rounded">
+                            <option>Português</option>
+                            <option>Matemática</option>
+                        </select>
+                        <div class="border p-3 rounded text-sm">
+                            <p class="text-gray-500 mb-2">Anos que leciona:</p>
+                            <label class="mr-4"><input type="checkbox"> 1º Médio</label>
+                            <label class="mr-4"><input type="checkbox"> 2º Médio</label>
+                            <label><input type="checkbox"> 3º Médio</label>
+                        </div>
+                        <input type="date" class="w-full p-3 border rounded" required>
+                        <input type="email" placeholder="E-mail" class="w-full p-3 border rounded" required>
+                        <input type="password" placeholder="Senha" class="w-full p-3 border rounded" required>
+                        <button class="w-full bg-blue-600 text-white py-3 rounded-lg font-bold">CRIAR CONTA</button>
+                    </form>
+                    <button onclick="navigate('login')" class="mt-4 text-gray-500 text-sm">Voltar</button>
+                </div>
+            </div>`;
+        }
+
+        function renderStudentHome() {
+            const student = state.user || state.students[0];
+            return `
+            <div class="pb-20">
+                <header class="bg-indigo-600 p-6 text-white shadow-lg">
+                    <div class="flex items-center space-x-4">
+                        <div class="w-16 h-16 bg-white rounded-lg p-1 pixel-border animate-float">
+                            ${getCharSVG(student.charData)}
+                        </div>
+                        <div class="flex-1">
+                            <p class="pixel-text text-[10px]">LVL ${student.level}</p>
+                            <div class="w-full bg-indigo-900 h-3 rounded-full mt-1 border border-white overflow-hidden">
+                                <div class="bg-yellow-400 h-full" style="width: 70%"></div>
+                            </div>
+                            <p class="text-[10px] mt-1">XP: 450 / 600</p>
+                        </div>
+                    </div>
+                </header>
+
+                <main class="p-6">
+                    <h2 class="pixel-text text-gray-600 mb-4">Tarefas Pendentes</h2>
+                    <div class="space-y-4">
+                        ${state.tasks.filter(t => t.status === 'pending').map(task => `
+                            <div onclick="openTask(${task.id})" class="bg-white p-4 rounded-xl shadow-sm border-l-8 border-yellow-400 cursor-pointer hover:scale-[1.02] transition">
+                                <p class="font-bold text-gray-800">TAREFA PENDENTE</p>
+                                <p class="text-xs text-indigo-600 font-semibold">${task.subject}: ${task.title}</p>
+                                <p class="text-[10px] text-gray-400 mt-2">Prêmio: +${task.xp} XP</p>
+                            </div>
+                        `).join('')}
+                    </div>
+                </main>
+                ${renderStudentNav('home')}
+            </div>`;
+        }
+
+        function renderStudentCharacter() {
+            return `
+            <div class="p-6 pb-20">
+                <h2 class="pixel-text text-center text-lg mb-8">Personalizar</h2>
+                <div class="flex justify-center mb-10">
+                    <div class="w-48 h-48 bg-white pixel-border flex items-center justify-center p-4">
+                        ${getCharSVG(state.students[0].charData)}
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <button class="bg-white p-4 pixel-border pixel-text">Cabelo</button>
+                    <button class="bg-white p-4 pixel-border pixel-text">Roupa</button>
+                    <button class="bg-white p-4 pixel-border pixel-text opacity-50">Arma (Lvl 10)</button>
+                    <button class="bg-white p-4 pixel-border pixel-text opacity-50">Aura (Lvl 20)</button>
+                </div>
+                ${renderStudentNav('char')}
+            </div>`;
+        }
+
+        function renderStudentProfile() {
+            const student = state.user || state.students[0];
+            return `
+            <div class="p-6 pb-20">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="pixel-text text-lg">Perfil</h2>
+                    <button onclick="handleLogout()" class="text-red-500 font-bold text-xs border border-red-200 px-3 py-1 rounded-lg hover:bg-red-50">SAIR</button>
+                </div>
+
+                <div class="bg-white p-6 rounded-2xl shadow-lg border-2 border-indigo-100">
+                    <div class="flex flex-col items-center mb-6">
+                        <div class="w-24 h-24 mb-4">${getCharSVG(student.charData)}</div>
+                        <h2 class="text-xl font-bold">${student.name}</h2>
+                        <p class="pixel-text text-indigo-500 mt-1">${student.characterName}</p>
+                        <p class="text-sm text-gray-500">Nível ${student.level} - Explorador</p>
+                    </div>
+
+                    <div class="space-y-4 text-sm">
+                        <div class="flex justify-between border-b pb-2"><span>E-mail</span><span class="font-semibold text-right">aluno@escola.sp.gov.br</span></div>
+                        <div class="flex justify-between border-b pb-2"><span>RA</span><span class="font-semibold">${student.ra}</span></div>
+                        <div class="flex justify-between border-b pb-2"><span>Turma</span><span class="font-semibold">1ºB</span></div>
+                    </div>
+
+                    <button class="w-full mt-8 bg-indigo-600 text-white py-3 rounded-lg font-bold">TAREFAS REALIZADAS</button>
+                    <button class="w-full mt-2 border border-gray-300 py-3 rounded-lg font-bold text-gray-600">EDITAR DADOS</button>
+                </div>
+                ${renderStudentNav('profile')}
+            </div>`;
+        }
+
+        function renderTaskPage() {
+            return `
+            <div class="p-6 bg-white min-h-screen">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="pixel-text">Missão</h2>
+                    <span class="bg-yellow-100 text-yellow-700 px-3 py-1 rounded-full text-xs font-bold">+150 XP</span>
+                </div>
+                <div class="space-y-8">
+                    <div>
+                        <p class="font-bold mb-4">1. Qual o valor de x na equação x² - 16 = 0?</p>
+                        <div class="space-y-2">
+                            <label class="block p-4 border rounded-lg cursor-pointer hover:bg-indigo-50"><input type="radio" name="q1" class="mr-2"> x = 4 ou x = -4</label>
+                            <label class="block p-4 border rounded-lg cursor-pointer hover:bg-indigo-50"><input type="radio" name="q1" class="mr-2"> x = 8</label>
+                            <label class="block p-4 border rounded-lg cursor-pointer hover:bg-indigo-50"><input type="radio" name="q1" class="mr-2"> x = 16</label>
+                        </div>
+                    </div>
+                </div>
+                <div class="mt-10">
+                    <button onclick="navigate('student_home')" class="w-full bg-green-500 text-white py-4 rounded-xl font-bold pixel-text">ENTREGAR MISSÃO</button>
+                </div>
+            </div>`;
+        }
+
+        // --- TELAS PROFESSOR ---
+
+        function renderTeacherHome() {
+            return `
+            <div class="p-6 pb-20">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="pixel-text text-indigo-800">EduQuest Docente</h2>
+                    <button onclick="handleLogout()" class="text-red-500 font-bold text-xs border border-red-200 px-3 py-1 rounded-lg hover:bg-red-50">SAIR</button>
+                </div>
+
+                <div class="bg-indigo-800 text-white p-6 rounded-2xl mb-6 pixel-border">
+                    <p class="text-xs opacity-80">Professor(a)</p>
+                    <h2 class="text-xl font-bold">Sílvia Garcia</h2>
+                    <p class="text-sm mt-2">Matéria: Matemática</p>
+                    <p class="text-xs mt-1">CPF: ***.456.***-00</p>
+                </div>
+
+                <h3 class="pixel-text mb-4">Minhas Turmas</h3>
+                <div class="grid grid-cols-2 gap-4">
+                    ${state.classes.map(c => `
+                        <div onclick="navigate('teacher_classes')" class="bg-white p-6 rounded-xl shadow-sm text-center border-b-4 border-indigo-600 cursor-pointer hover:bg-indigo-50">
+                            <p class="text-2xl font-bold">${c}</p>
+                            <p class="text-[10px] text-gray-500">40 alunos</p>
+                        </div>
+                    `).join('')}
+                </div>
+
+                <button onclick="navigate('teacher_create_task')" class="fixed bottom-24 right-6 w-14 h-14 bg-indigo-600 text-white rounded-full shadow-xl flex items-center justify-center text-3xl font-bold">+</button>
+
+                ${renderTeacherNav('profile')}
+            </div>`;
+        }
+
+        function renderTeacherClasses() {
+            return `
+            <div class="p-6 pb-20">
+                <button onclick="navigate('teacher_home')" class="mb-4 text-sm text-indigo-600">← Voltar</button>
+                <h2 class="pixel-text mb-6 text-lg">Turma 1ºB</h2>
+                
+                <div class="space-y-3">
+                    ${state.students.concat([
+                        { name: 'Nayara Camargo', level: 4, characterName: 'Guerreira Ágil' },
+                        { name: 'João Silva', level: 2, characterName: 'Novato' }
+                    ]).map(s => `
+                        <div onclick="navigate('teacher_student_detail')" class="bg-white p-4 rounded-xl flex items-center space-x-4 cursor-pointer hover:bg-gray-50">
+                            <div class="w-10 h-10 bg-gray-200 rounded-lg flex items-center justify-center overflow-hidden">
+                                ${getCharSVG({hair:'brown', outfit:'red'})}
+                            </div>
+                            <div>
+                                <p class="font-bold text-sm">${s.name}</p>
+                                <p class="text-xs text-gray-500">Lvl ${s.level} - ${s.characterName}</p>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+                ${renderTeacherNav('classes')}
+            </div>`;
+        }
+
+        function renderTeacherAnalysis() {
+            return `
+            <div class="p-6 pb-20">
+                <h2 class="pixel-text text-lg mb-6">Análise de IA</h2>
+                <div class="bg-white p-4 rounded-xl mb-4 border-l-4 border-purple-500">
+                    <p class="font-bold text-sm">Relatório Semanal</p>
+                    <p class="text-xs text-gray-600 mt-2">A turma 1ºB apresentou 35% de dificuldade em "Equações de 2º Grau".</p>
+                </div>
+                <div class="bg-white p-6 rounded-xl border-2 border-purple-100 shadow-inner">
+                    <p class="pixel-text text-[10px] text-purple-600">Sugestão da IA</p>
+                    <p class="text-sm mt-3">Recomendamos aplicar uma missão de reforço sobre <strong>Delta e Bhaskara</strong> com XP dobrado para motivar a turma.</p>
+                </div>
+                ${renderTeacherNav('analysis')}
+            </div>`;
+        }
+
+        function renderCreateTask() {
+            return `
+            <div class="p-6 min-h-screen bg-white">
+                <h2 class="pixel-text mb-6">Criar Missão</h2>
+                <form class="space-y-6">
+                    <div>
+                        <label class="block text-xs font-bold mb-2">TÍTULO</label>
+                        <input type="text" placeholder="Ex: Frações" class="w-full p-3 border rounded-lg">
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-bold mb-2">XP</label>
+                            <input type="number" value="100" class="w-full p-3 border rounded-lg">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold mb-2">TURMA</label>
+                            <select class="w-full p-3 border rounded-lg">
+                                <option>1ºB</option>
+                                <option>2ºC</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="p-4 border-2 border-dashed rounded-xl text-center">
+                        <button type="button" class="text-indigo-600 text-xs font-bold">+ ADICIONAR QUESTÃO</button>
+                    </div>
+                    <button onclick="navigate('teacher_home')" class="w-full bg-indigo-600 text-white py-4 rounded-xl font-bold">ENVIAR</button>
+                    <button onclick="navigate('teacher_home')" type="button" class="w-full text-gray-400">Cancelar</button>
+                </form>
+            </div>`;
+        }
+
+        function renderTeacherStudentDetail() {
+            return `
+            <div class="p-6 pb-20">
+                <button onclick="navigate('teacher_classes')" class="mb-4 text-sm text-indigo-600">← Voltar</button>
+                <div class="bg-white p-6 rounded-2xl shadow-lg flex flex-col items-center">
+                    <div class="w-24 h-24 mb-4">${getCharSVG({ hair: 'black', outfit: 'blue', weapon: 'staff' })}</div>
+                    <h2 class="text-xl font-bold">Laurie Vitória</h2>
+                    <p class="pixel-text text-indigo-500">Maga da Lógica</p>
+                    <p class="text-sm text-gray-500">Nível 5</p>
+                </div>
+                <h3 class="pixel-text text-xs mt-8 mb-4">Tarefas Realizadas</h3>
+                <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-green-500">
+                    <p class="font-bold text-sm">Equações Básicas</p>
+                    <p class="text-xs text-gray-500">Nota: 10/10 • +200 XP</p>
+                </div>
+                ${renderTeacherNav('classes')}
+            </div>`;
+        }
+
+        // --- Navegação ---
+
+        function renderStudentNav(active) {
+            return `
+            <nav class="fixed bottom-0 left-0 right-0 bg-white border-t flex justify-around p-3 shadow-2xl z-50">
+                <button onclick="navigate('student_home')" class="flex flex-col items-center ${active==='home'?'text-indigo-600':'text-gray-400'}">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+                    <span class="text-[10px] mt-1">Início</span>
+                </button>
+                <button onclick="navigate('student_character')" class="flex flex-col items-center ${active==='char'?'text-indigo-600':'text-gray-400'}">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    <span class="text-[10px] mt-1">Avatar</span>
+                </button>
+                <button onclick="navigate('student_profile')" class="flex flex-col items-center ${active==='profile'?'text-indigo-600':'text-gray-400'}">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM4 21v-2a4 4 0 014-4h8a4 4 0 014 4v2"/></svg>
+                    <span class="text-[10px] mt-1">Perfil</span>
+                </button>
+            </nav>`;
+        }
+
+        function renderTeacherNav(active) {
+            return `
+            <nav class="fixed bottom-0 left-0 right-0 bg-white border-t flex justify-around p-3 shadow-2xl z-50">
+                <button onclick="navigate('teacher_home')" class="flex flex-col items-center ${active==='profile'?'text-indigo-600':'text-gray-400'}">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM4 21v-2a4 4 0 014-4h8a4 4 0 014 4v2"/></svg>
+                    <span class="text-[10px] mt-1">Perfil</span>
+                </button>
+                <button onclick="navigate('teacher_classes')" class="flex flex-col items-center ${active==='classes'?'text-indigo-600':'text-gray-400'}">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+                    <span class="text-[10px] mt-1">Turmas</span>
+                </button>
+                <button onclick="navigate('teacher_analysis')" class="flex flex-col items-center ${active==='analysis'?'text-indigo-600':'text-gray-400'}">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+                    <span class="text-[10px] mt-1">Análise</span>
+                </button>
+            </nav>`;
+        }
+
+        // --- Avatar SVG ---
+
+        function getCharSVG(data) {
+            return `
+            <svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" class="w-full h-full">
+                <rect x="24" y="24" width="16" height="16" fill="#fbd38d" />
+                <rect x="28" y="30" width="2" height="2" fill="#000" />
+                <rect x="34" y="30" width="2" height="2" fill="#000" />
+                <rect x="24" y="20" width="16" height="8" fill="${data?.hair === 'black' ? '#000' : '#8B4513'}" />
+                <rect x="22" y="40" width="20" height="14" fill="${data?.outfit === 'blue' ? '#3182ce' : '#e53e3e'}" />
+                <rect x="42" y="30" width="4" height="24" fill="#8a4baf" />
+            </svg>`;
+        }
+
+        // --- Ações de Login ---
+
+        window.navigate = (view) => {
+            state.currentView = view;
+            render();
+        };
+
+        window.handleLoginAction = () => {
+            const login = document.getElementById('login_id').value;
+            if (state.userType === 'teacher') {
+                state.currentView = 'teacher_home';
+            } else {
+                state.currentView = 'student_home';
+            }
+            render();
+        };
+
+        window.openTask = (id) => {
+            state.currentView = 'student_task';
+            render();
+        };
+
+        window.onload = render;
+
+    </script>
+</body>
+</html><!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EduQuest - Sistema Educacional Gamificado</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --pixel-font: 'Press Start 2P', cursive;
+            --main-font: 'Inter', sans-serif;
+        }
+        body { font-family: var(--main-font); background-color: #f0f2f5; }
+        .pixel-text { font-family: var(--pixel-font); font-size: 0.7rem; }
+        .pixel-border { border: 4px solid #000; box-shadow: 4px 4px 0px rgba(0,0,0,0.2); }
+        .bg-quest { background-color: #4a3bcf; }
+        
+        /* Personagem Customizável */
+        .character-preview {
+            width: 150px;
+            height: 150px;
+            background: #e2e8f0;
+            position: relative;
+            image-rendering: pixelated;
+        }
+        
+        /* Animações */
+        @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
+        .animate-float { animation: bounce 2s infinite ease-in-out; }
+    </style>
+</head>
+<body class="bg-gray-100">
+
+    <div id="app">
+        <!-- Telas serão injetadas aqui via JavaScript -->
+    </div>
+
+    <script>
+        // --- Estado Global do Sistema ---
+        const state = {
+            currentView: 'login',
+            userType: null,
+            user: null,
+            tasks: [
+                { id: 1, title: 'Equações de 2º Grau', subject: 'Matemática', xp: 150, status: 'pending', questions: [
+                    { q: 'Qual o valor de x em x² - 4 = 0?', options: ['2 e -2', '0', '4', '1'], correct: 0 }
+                ]},
+                { id: 2, title: 'Análise de Texto: Machado de Assis', subject: 'Português', xp: 100, status: 'pending', questions: [
+                    { q: 'Quem escreveu Dom Casmurro?', options: ['Clarice Lispector', 'Machado de Assis', 'Érico Veríssimo', 'Monteiro Lobato'], correct: 1 }
+                ]}
+            ],
+            students: [
+                { ra: '123', name: 'Laurie Vitória', level: 5, xp: 450, characterName: 'Maga da Lógica', charData: { hair: 'black', outfit: 'blue', weapon: 'staff' }, tasksDone: [] }
+            ],
+            classes: ['1ºA', '1ºB', '2ºC', '3ºA']
+        };
+
+        // --- Gerenciador de Visualização ---
+        function render() {
+            const app = document.getElementById('app');
+            app.innerHTML = '';
+
+            switch(state.currentView) {
+                case 'login': app.innerHTML = renderLogin(); break;
+                case 'register_student': app.innerHTML = renderRegisterStudent(); break;
+                case 'register_teacher': app.innerHTML = renderRegisterTeacher(); break;
+                case 'student_home': app.innerHTML = renderStudentHome(); break;
+                case 'student_character': app.innerHTML = renderStudentCharacter(); break;
+                case 'student_profile': app.innerHTML = renderStudentProfile(); break;
+                case 'student_task': app.innerHTML = renderTaskPage(); break;
+                case 'teacher_home': app.innerHTML = renderTeacherHome(); break;
+                case 'teacher_classes': app.innerHTML = renderTeacherClasses(); break;
+                case 'teacher_analysis': app.innerHTML = renderTeacherAnalysis(); break;
+                case 'teacher_create_task': app.innerHTML = renderCreateTask(); break;
+                case 'teacher_student_detail': app.innerHTML = renderTeacherStudentDetail(); break;
+            }
+        }
+
+        // --- Lógica de Logout ---
+        window.handleLogout = () => {
+            state.user = null;
+            state.userType = null;
+            state.currentView = 'login';
+            render();
+        };
+
+        // --- Templates de Componentes ---
+
+        function renderLogin() {
+            return `
+            <div class="min-h-screen flex flex-col items-center justify-center p-4">
+                <div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-md pixel-border">
+                    <h1 class="pixel-text text-xl mb-6 text-center text-indigo-600">EduQuest Login</h1>
+                    
+                    <div class="flex mb-6 space-x-2">
+                        <button onclick="state.userType='student'; render()" class="flex-1 py-2 ${state.userType !== 'teacher' ? 'bg-indigo-600 text-white' : 'bg-gray-200'} rounded-lg font-bold">Aluno</button>
+                        <button onclick="state.userType='teacher'; render()" class="flex-1 py-2 ${state.userType === 'teacher' ? 'bg-indigo-600 text-white' : 'bg-gray-200'} rounded-lg font-bold">Professor</button>
+                    </div>
+
+                    <div class="space-y-4">
+                        <input type="text" id="login_id" placeholder="${state.userType === 'teacher' ? 'CPF' : 'RA'}" class="w-full p-3 border rounded-lg outline-none focus:ring-2 focus:ring-indigo-400">
+                        <input type="password" id="login_pass" placeholder="Senha" class="w-full p-3 border rounded-lg outline-none focus:ring-2 focus:ring-indigo-400">
+                        <button onclick="handleLoginAction()" class="w-full bg-indigo-600 text-white py-3 rounded-lg font-bold hover:bg-indigo-700 transition">ENTRAR</button>
+                    </div>
+
+                    <p class="mt-6 text-center text-sm">
+                        Não tem conta? 
+                        <a href="#" onclick="state.currentView = state.userType === 'teacher' ? 'register_teacher' : 'register_student'; render()" class="text-indigo-600 font-bold underline">Cadastre-se</a>
+                    </p>
+                </div>
+            </div>`;
+        }
+
+        function renderRegisterStudent() {
+            return `
+            <div class="min-h-screen p-6 bg-indigo-50 flex justify-center">
+                <div class="bg-white p-8 rounded-xl shadow-lg w-full max-w-lg">
+                    <h2 class="pixel-text text-lg mb-6">Cadastro de Aluno</h2>
+                    <form class="space-y-4" onsubmit="event.preventDefault(); navigate('login')">
+                        <input type="text" placeholder="Nome Completo" class="w-full p-3 border rounded" required>
+                        <input type="text" placeholder="RA" class="w-full p-3 border rounded" required>
+                        <select class="w-full p-3 border rounded">
+                            <option>1º Ano Ensino Médio</option>
+                            <option>2º Ano Ensino Médio</option>
+                            <option>3º Ano Ensino Médio</option>
+                        </select>
+                        <input type="date" class="w-full p-3 border rounded" required>
+                        <input type="email" placeholder="E-mail" class="w-full p-3 border rounded" required>
+                        <input type="password" placeholder="Senha" class="w-full p-3 border rounded" required>
+                        <button class="w-full bg-green-500 text-white py-3 rounded-lg font-bold">CRIAR CONTA</button>
+                    </form>
+                    <button onclick="navigate('login')" class="mt-4 text-gray-500 text-sm">Voltar</button>
+                </div>
+            </div>`;
+        }
+
+        function renderRegisterTeacher() {
+            return `
+            <div class="min-h-screen p-6 bg-indigo-50 flex justify-center">
+                <div class="bg-white p-8 rounded-xl shadow-lg w-full max-w-lg">
+                    <h2 class="pixel-text text-lg mb-6">Cadastro de Professor</h2>
+                    <form class="space-y-4" onsubmit="event.preventDefault(); navigate('login')">
+                        <input type="text" placeholder="Nome Completo" class="w-full p-3 border rounded" required>
+                        <input type="text" placeholder="CPF" class="w-full p-3 border rounded" required>
+                        <select class="w-full p-3 border rounded">
+                            <option>Português</option>
+                            <option>Matemática</option>
+                        </select>
+                        <div class="border p-3 rounded text-sm">
+                            <p class="text-gray-500 mb-2">Anos que leciona:</p>
+                            <label class="mr-4"><input type="checkbox"> 1º Médio</label>
+                            <label class="mr-4"><input type="checkbox"> 2º Médio</label>
+                            <label><input type="checkbox"> 3º Médio</label>
+                        </div>
+                        <input type="date" class="w-full p-3 border rounded" required>
+                        <input type="email" placeholder="E-mail" class="w-full p-3 border rounded" required>
+                        <input type="password" placeholder="Senha" class="w-full p-3 border rounded" required>
+                        <button class="w-full bg-blue-600 text-white py-3 rounded-lg font-bold">CRIAR CONTA</button>
+                    </form>
+                    <button onclick="navigate('login')" class="mt-4 text-gray-500 text-sm">Voltar</button>
+                </div>
+            </div>`;
+        }
+
+        function renderStudentHome() {
+            const student = state.user || state.students[0];
+            return `
+            <div class="pb-20">
+                <header class="bg-indigo-600 p-6 text-white shadow-lg">
+                    <div class="flex items-center space-x-4">
+                        <div class="w-16 h-16 bg-white rounded-lg p-1 pixel-border animate-float">
+                            ${getCharSVG(student.charData)}
+                        </div>
+                        <div class="flex-1">
+                            <p class="pixel-text text-[10px]">LVL ${student.level}</p>
+                            <div class="w-full bg-indigo-900 h-3 rounded-full mt-1 border border-white overflow-hidden">
+                                <div class="bg-yellow-400 h-full" style="width: 70%"></div>
+                            </div>
+                            <p class="text-[10px] mt-1">XP: 450 / 600</p>
+                        </div>
+                    </div>
+                </header>
+
+                <main class="p-6">
+                    <h2 class="pixel-text text-gray-600 mb-4">Tarefas Pendentes</h2>
+                    <div class="space-y-4">
+                        ${state.tasks.filter(t => t.status === 'pending').map(task => `
+                            <div onclick="openTask(${task.id})" class="bg-white p-4 rounded-xl shadow-sm border-l-8 border-yellow-400 cursor-pointer hover:scale-[1.02] transition">
+                                <p class="font-bold text-gray-800">TAREFA PENDENTE</p>
+                                <p class="text-xs text-indigo-600 font-semibold">${task.subject}: ${task.title}</p>
+                                <p class="text-[10px] text-gray-400 mt-2">Prêmio: +${task.xp} XP</p>
+                            </div>
+                        `).join('')}
+                    </div>
+                </main>
+                ${renderStudentNav('home')}
+            </div>`;
+        }
+
+        function renderStudentCharacter() {
+            return `
+            <div class="p-6 pb-20">
+                <h2 class="pixel-text text-center text-lg mb-8">Personalizar</h2>
+                <div class="flex justify-center mb-10">
+                    <div class="w-48 h-48 bg-white pixel-border flex items-center justify-center p-4">
+                        ${getCharSVG(state.students[0].charData)}
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <button class="bg-white p-4 pixel-border pixel-text">Cabelo</button>
+                    <button class="bg-white p-4 pixel-border pixel-text">Roupa</button>
+                    <button class="bg-white p-4 pixel-border pixel-text opacity-50">Arma (Lvl 10)</button>
+                    <button class="bg-white p-4 pixel-border pixel-text opacity-50">Aura (Lvl 20)</button>
+                </div>
+                ${renderStudentNav('char')}
+            </div>`;
+        }
+
+        function renderStudentProfile() {
+            const student = state.user || state.students[0];
+            return `
+            <div class="p-6 pb-20">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="pixel-text text-lg">Perfil</h2>
+                    <button onclick="handleLogout()" class="text-red-500 font-bold text-xs border border-red-200 px-3 py-1 rounded-lg hover:bg-red-50">SAIR</button>
+                </div>
+
+                <div class="bg-white p-6 rounded-2xl shadow-lg border-2 border-indigo-100">
+                    <div class="flex flex-col items-center mb-6">
+                        <div class="w-24 h-24 mb-4">${getCharSVG(student.charData)}</div>
+                        <h2 class="text-xl font-bold">${student.name}</h2>
+                        <p class="pixel-text text-indigo-500 mt-1">${student.characterName}</p>
+                        <p class="text-sm text-gray-500">Nível ${student.level} - Explorador</p>
+                    </div>
+
+                    <div class="space-y-4 text-sm">
+                        <div class="flex justify-between border-b pb-2"><span>E-mail</span><span class="font-semibold text-right">aluno@escola.sp.gov.br</span></div>
+                        <div class="flex justify-between border-b pb-2"><span>RA</span><span class="font-semibold">${student.ra}</span></div>
+                        <div class="flex justify-between border-b pb-2"><span>Turma</span><span class="font-semibold">1ºB</span></div>
+                    </div>
+
+                    <button class="w-full mt-8 bg-indigo-600 text-white py-3 rounded-lg font-bold">TAREFAS REALIZADAS</button>
+                    <button class="w-full mt-2 border border-gray-300 py-3 rounded-lg font-bold text-gray-600">EDITAR DADOS</button>
+                </div>
+                ${renderStudentNav('profile')}
+            </div>`;
+        }
+
+        function renderTaskPage() {
+            return `
+            <div class="p-6 bg-white min-h-screen">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="pixel-text">Missão</h2>
+                    <span class="bg-yellow-100 text-yellow-700 px-3 py-1 rounded-full text-xs font-bold">+150 XP</span>
+                </div>
+                <div class="space-y-8">
+                    <div>
+                        <p class="font-bold mb-4">1. Qual o valor de x na equação x² - 16 = 0?</p>
+                        <div class="space-y-2">
+                            <label class="block p-4 border rounded-lg cursor-pointer hover:bg-indigo-50"><input type="radio" name="q1" class="mr-2"> x = 4 ou x = -4</label>
+                            <label class="block p-4 border rounded-lg cursor-pointer hover:bg-indigo-50"><input type="radio" name="q1" class="mr-2"> x = 8</label>
+                            <label class="block p-4 border rounded-lg cursor-pointer hover:bg-indigo-50"><input type="radio" name="q1" class="mr-2"> x = 16</label>
+                        </div>
+                    </div>
+                </div>
+                <div class="mt-10">
+                    <button onclick="navigate('student_home')" class="w-full bg-green-500 text-white py-4 rounded-xl font-bold pixel-text">ENTREGAR MISSÃO</button>
+                </div>
+            </div>`;
+        }
+
+        // --- TELAS PROFESSOR ---
+
+        function renderTeacherHome() {
+            return `
+            <div class="p-6 pb-20">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="pixel-text text-indigo-800">EduQuest Docente</h2>
+                    <button onclick="handleLogout()" class="text-red-500 font-bold text-xs border border-red-200 px-3 py-1 rounded-lg hover:bg-red-50">SAIR</button>
+                </div>
+
+                <div class="bg-indigo-800 text-white p-6 rounded-2xl mb-6 pixel-border">
+                    <p class="text-xs opacity-80">Professor(a)</p>
+                    <h2 class="text-xl font-bold">Sílvia Garcia</h2>
+                    <p class="text-sm mt-2">Matéria: Matemática</p>
+                    <p class="text-xs mt-1">CPF: ***.456.***-00</p>
+                </div>
+
+                <h3 class="pixel-text mb-4">Minhas Turmas</h3>
+                <div class="grid grid-cols-2 gap-4">
+                    ${state.classes.map(c => `
+                        <div onclick="navigate('teacher_classes')" class="bg-white p-6 rounded-xl shadow-sm text-center border-b-4 border-indigo-600 cursor-pointer hover:bg-indigo-50">
+                            <p class="text-2xl font-bold">${c}</p>
+                            <p class="text-[10px] text-gray-500">40 alunos</p>
+                        </div>
+                    `).join('')}
+                </div>
+
+                <button onclick="navigate('teacher_create_task')" class="fixed bottom-24 right-6 w-14 h-14 bg-indigo-600 text-white rounded-full shadow-xl flex items-center justify-center text-3xl font-bold">+</button>
+
+                ${renderTeacherNav('profile')}
+            </div>`;
+        }
+
+        function renderTeacherClasses() {
+            return `
+            <div class="p-6 pb-20">
+                <button onclick="navigate('teacher_home')" class="mb-4 text-sm text-indigo-600">← Voltar</button>
+                <h2 class="pixel-text mb-6 text-lg">Turma 1ºB</h2>
+                
+                <div class="space-y-3">
+                    ${state.students.concat([
+                        { name: 'Nayara Camargo', level: 4, characterName: 'Guerreira Ágil' },
+                        { name: 'João Silva', level: 2, characterName: 'Novato' }
+                    ]).map(s => `
+                        <div onclick="navigate('teacher_student_detail')" class="bg-white p-4 rounded-xl flex items-center space-x-4 cursor-pointer hover:bg-gray-50">
+                            <div class="w-10 h-10 bg-gray-200 rounded-lg flex items-center justify-center overflow-hidden">
+                                ${getCharSVG({hair:'brown', outfit:'red'})}
+                            </div>
+                            <div>
+                                <p class="font-bold text-sm">${s.name}</p>
+                                <p class="text-xs text-gray-500">Lvl ${s.level} - ${s.characterName}</p>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+                ${renderTeacherNav('classes')}
+            </div>`;
+        }
+
+        function renderTeacherAnalysis() {
+            return `
+            <div class="p-6 pb-20">
+                <h2 class="pixel-text text-lg mb-6">Análise de IA</h2>
+                <div class="bg-white p-4 rounded-xl mb-4 border-l-4 border-purple-500">
+                    <p class="font-bold text-sm">Relatório Semanal</p>
+                    <p class="text-xs text-gray-600 mt-2">A turma 1ºB apresentou 35% de dificuldade em "Equações de 2º Grau".</p>
+                </div>
+                <div class="bg-white p-6 rounded-xl border-2 border-purple-100 shadow-inner">
+                    <p class="pixel-text text-[10px] text-purple-600">Sugestão da IA</p>
+                    <p class="text-sm mt-3">Recomendamos aplicar uma missão de reforço sobre <strong>Delta e Bhaskara</strong> com XP dobrado para motivar a turma.</p>
+                </div>
+                ${renderTeacherNav('analysis')}
+            </div>`;
+        }
+
+        function renderCreateTask() {
+            return `
+            <div class="p-6 min-h-screen bg-white">
+                <h2 class="pixel-text mb-6">Criar Missão</h2>
+                <form class="space-y-6">
+                    <div>
+                        <label class="block text-xs font-bold mb-2">TÍTULO</label>
+                        <input type="text" placeholder="Ex: Frações" class="w-full p-3 border rounded-lg">
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-bold mb-2">XP</label>
+                            <input type="number" value="100" class="w-full p-3 border rounded-lg">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold mb-2">TURMA</label>
+                            <select class="w-full p-3 border rounded-lg">
+                                <option>1ºB</option>
+                                <option>2ºC</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="p-4 border-2 border-dashed rounded-xl text-center">
+                        <button type="button" class="text-indigo-600 text-xs font-bold">+ ADICIONAR QUESTÃO</button>
+                    </div>
+                    <button onclick="navigate('teacher_home')" class="w-full bg-indigo-600 text-white py-4 rounded-xl font-bold">ENVIAR</button>
+                    <button onclick="navigate('teacher_home')" type="button" class="w-full text-gray-400">Cancelar</button>
+                </form>
+            </div>`;
+        }
+
+        function renderTeacherStudentDetail() {
+            return `
+            <div class="p-6 pb-20">
+                <button onclick="navigate('teacher_classes')" class="mb-4 text-sm text-indigo-600">← Voltar</button>
+                <div class="bg-white p-6 rounded-2xl shadow-lg flex flex-col items-center">
+                    <div class="w-24 h-24 mb-4">${getCharSVG({ hair: 'black', outfit: 'blue', weapon: 'staff' })}</div>
+                    <h2 class="text-xl font-bold">Laurie Vitória</h2>
+                    <p class="pixel-text text-indigo-500">Maga da Lógica</p>
+                    <p class="text-sm text-gray-500">Nível 5</p>
+                </div>
+                <h3 class="pixel-text text-xs mt-8 mb-4">Tarefas Realizadas</h3>
+                <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-green-500">
+                    <p class="font-bold text-sm">Equações Básicas</p>
+                    <p class="text-xs text-gray-500">Nota: 10/10 • +200 XP</p>
+                </div>
+                ${renderTeacherNav('classes')}
+            </div>`;
+        }
+
+        // --- Navegação ---
+
+        function renderStudentNav(active) {
+            return `
+            <nav class="fixed bottom-0 left-0 right-0 bg-white border-t flex justify-around p-3 shadow-2xl z-50">
+                <button onclick="navigate('student_home')" class="flex flex-col items-center ${active==='home'?'text-indigo-600':'text-gray-400'}">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+                    <span class="text-[10px] mt-1">Início</span>
+                </button>
+                <button onclick="navigate('student_character')" class="flex flex-col items-center ${active==='char'?'text-indigo-600':'text-gray-400'}">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    <span class="text-[10px] mt-1">Avatar</span>
+                </button>
+                <button onclick="navigate('student_profile')" class="flex flex-col items-center ${active==='profile'?'text-indigo-600':'text-gray-400'}">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM4 21v-2a4 4 0 014-4h8a4 4 0 014 4v2"/></svg>
+                    <span class="text-[10px] mt-1">Perfil</span>
+                </button>
+            </nav>`;
+        }
+
+        function renderTeacherNav(active) {
+            return `
+            <nav class="fixed bottom-0 left-0 right-0 bg-white border-t flex justify-around p-3 shadow-2xl z-50">
+                <button onclick="navigate('teacher_home')" class="flex flex-col items-center ${active==='profile'?'text-indigo-600':'text-gray-400'}">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM4 21v-2a4 4 0 014-4h8a4 4 0 014 4v2"/></svg>
+                    <span class="text-[10px] mt-1">Perfil</span>
+                </button>
+                <button onclick="navigate('teacher_classes')" class="flex flex-col items-center ${active==='classes'?'text-indigo-600':'text-gray-400'}">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+                    <span class="text-[10px] mt-1">Turmas</span>
+                </button>
+                <button onclick="navigate('teacher_analysis')" class="flex flex-col items-center ${active==='analysis'?'text-indigo-600':'text-gray-400'}">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+                    <span class="text-[10px] mt-1">Análise</span>
+                </button>
+            </nav>`;
+        }
+
+        // --- Avatar SVG ---
+
+        function getCharSVG(data) {
+            return `
+            <svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" class="w-full h-full">
+                <rect x="24" y="24" width="16" height="16" fill="#fbd38d" />
+                <rect x="28" y="30" width="2" height="2" fill="#000" />
+                <rect x="34" y="30" width="2" height="2" fill="#000" />
+                <rect x="24" y="20" width="16" height="8" fill="${data?.hair === 'black' ? '#000' : '#8B4513'}" />
+                <rect x="22" y="40" width="20" height="14" fill="${data?.outfit === 'blue' ? '#3182ce' : '#e53e3e'}" />
+                <rect x="42" y="30" width="4" height="24" fill="#8a4baf" />
+            </svg>`;
+        }
+
+        // --- Ações de Login ---
+
+        window.navigate = (view) => {
+            state.currentView = view;
+            render();
+        };
+
+        window.handleLoginAction = () => {
+            const login = document.getElementById('login_id').value;
+            if (state.userType === 'teacher') {
+                state.currentView = 'teacher_home';
+            } else {
+                state.currentView = 'student_home';
+            }
+            render();
+        };
+
+        window.openTask = (id) => {
+            state.currentView = 'student_task';
+            render();
+        };
+
+        window.onload = render;
+
+    </script>
+</body>
+</html>
