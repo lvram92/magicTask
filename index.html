@@ -1,951 +1,137 @@
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EduQuest - Sistema Educacional Gamificado</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
-    <style>
-        :root {
-            --pixel-font: 'Press Start 2P', cursive;
-            --main-font: 'Inter', sans-serif;
-        }
-        body { font-family: var(--main-font); background-color: #f0f2f5; }
-        .pixel-text { font-family: var(--pixel-font); font-size: 0.7rem; }
-        .pixel-border { border: 4px solid #000; box-shadow: 4px 4px 0px rgba(0,0,0,0.2); }
-        .bg-quest { background-color: #4a3bcf; }
-        
-        /* Personagem Customizável */
-        .character-preview {
-            width: 150px;
-            height: 150px;
-            background: #e2e8f0;
-            position: relative;
-            image-rendering: pixelated;
-        }
-        
-        /* Animações */
-        @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
-        .animate-float { animation: bounce 2s infinite ease-in-out; }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EduQuest - Sistema Educacional Gamificado</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+@keyframes float {
+0%, 100% { transform: translateY(0px); }
+50% { transform: translateY(-10px); }
+}
+@keyframes magicGlow {
+0% { box-shadow: 0 0 5px rgba(139, 92, 246, 0.5); }
+50% { box-shadow: 0 0 20px rgba(139, 92, 246, 0.8); }
+100% { box-shadow: 0 0 5px rgba(139, 92, 246, 0.5); }
+}
+@keyframes titleGlow {
+0%, 100% { text-shadow: 0 0 5px rgba(139, 92, 246, 0.5); }
+50% { text-shadow: 0 0 20px rgba(139, 92, 246, 0.8); }
+}
+.animate-float { animation: float 3s ease-in-out infinite; }
+.animate-magic-glow { animation: magicGlow 2s ease-in-out infinite; }
+.animate-title-glow { animation: titleGlow 2s ease-in-out infinite; }
+.xp-badge { background: linear-gradient(135deg, #8B5CF6 0%, #C084FC 50%, #E879F9 100%); }
+.magic-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%); }
+.btn-magic { background: linear-gradient(135deg, #8B5CF6 0%, #EC4899 100%); transition: all 0.3s ease; }
+.btn-magic:hover { transform: translateY(-2px); box-shadow: 0 10px 25px -5px rgba(139, 92, 246, 0.5); }
+.correct-answer { background-color: #dcfce7; border-left: 4px solid #22c55e; }
+.wrong-answer { background-color: #fee2e2; border-left: 4px solid #ef4444; }
+</style>
 </head>
-<body class="bg-gray-100">
-
-    <div id="app">
-        <!-- Telas serão injetadas aqui via JavaScript -->
-    </div>
-
-    <script>
-        // --- Estado Global do Sistema ---
-        const state = {
-            currentView: 'login',
-            userType: null,
-            user: null,
-            tasks: [
-                { id: 1, title: 'Equações de 2º Grau', subject: 'Matemática', xp: 150, status: 'pending', questions: [
-                    { q: 'Qual o valor de x em x² - 4 = 0?', options: ['2 e -2', '0', '4', '1'], correct: 0 }
-                ]},
-                { id: 2, title: 'Análise de Texto: Machado de Assis', subject: 'Português', xp: 100, status: 'pending', questions: [
-                    { q: 'Quem escreveu Dom Casmurro?', options: ['Clarice Lispector', 'Machado de Assis', 'Érico Veríssimo', 'Monteiro Lobato'], correct: 1 }
-                ]}
-            ],
-            students: [
-                { ra: '123', name: 'Laurie Vitória', level: 5, xp: 450, characterName: 'Maga da Lógica', charData: { hair: 'black', outfit: 'blue', weapon: 'staff' }, tasksDone: [] }
-            ],
-            classes: ['1ºA', '1ºB', '2ºC', '3ºA']
-        };
-
-        // --- Gerenciador de Visualização ---
-        function render() {
-            const app = document.getElementById('app');
-            app.innerHTML = '';
-
-            switch(state.currentView) {
-                case 'login': app.innerHTML = renderLogin(); break;
-                case 'register_student': app.innerHTML = renderRegisterStudent(); break;
-                case 'register_teacher': app.innerHTML = renderRegisterTeacher(); break;
-                case 'student_home': app.innerHTML = renderStudentHome(); break;
-                case 'student_character': app.innerHTML = renderStudentCharacter(); break;
-                case 'student_profile': app.innerHTML = renderStudentProfile(); break;
-                case 'student_task': app.innerHTML = renderTaskPage(); break;
-                case 'teacher_home': app.innerHTML = renderTeacherHome(); break;
-                case 'teacher_classes': app.innerHTML = renderTeacherClasses(); break;
-                case 'teacher_analysis': app.innerHTML = renderTeacherAnalysis(); break;
-                case 'teacher_create_task': app.innerHTML = renderCreateTask(); break;
-                case 'teacher_student_detail': app.innerHTML = renderTeacherStudentDetail(); break;
-            }
-        }
-
-        // --- Lógica de Logout ---
-        window.handleLogout = () => {
-            state.user = null;
-            state.userType = null;
-            state.currentView = 'login';
-            render();
-        };
-
-        // --- Templates de Componentes ---
-
-        function renderLogin() {
-            return `
-            <div class="min-h-screen flex flex-col items-center justify-center p-4">
-                <div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-md pixel-border">
-                    <h1 class="pixel-text text-xl mb-6 text-center text-indigo-600">EduQuest Login</h1>
-                    
-                    <div class="flex mb-6 space-x-2">
-                        <button onclick="state.userType='student'; render()" class="flex-1 py-2 ${state.userType !== 'teacher' ? 'bg-indigo-600 text-white' : 'bg-gray-200'} rounded-lg font-bold">Aluno</button>
-                        <button onclick="state.userType='teacher'; render()" class="flex-1 py-2 ${state.userType === 'teacher' ? 'bg-indigo-600 text-white' : 'bg-gray-200'} rounded-lg font-bold">Professor</button>
-                    </div>
-
-                    <div class="space-y-4">
-                        <input type="text" id="login_id" placeholder="${state.userType === 'teacher' ? 'CPF' : 'RA'}" class="w-full p-3 border rounded-lg outline-none focus:ring-2 focus:ring-indigo-400">
-                        <input type="password" id="login_pass" placeholder="Senha" class="w-full p-3 border rounded-lg outline-none focus:ring-2 focus:ring-indigo-400">
-                        <button onclick="handleLoginAction()" class="w-full bg-indigo-600 text-white py-3 rounded-lg font-bold hover:bg-indigo-700 transition">ENTRAR</button>
-                    </div>
-
-                    <p class="mt-6 text-center text-sm">
-                        Não tem conta? 
-                        <a href="#" onclick="state.currentView = state.userType === 'teacher' ? 'register_teacher' : 'register_student'; render()" class="text-indigo-600 font-bold underline">Cadastre-se</a>
-                    </p>
-                </div>
-            </div>`;
-        }
-
-        function renderRegisterStudent() {
-            return `
-            <div class="min-h-screen p-6 bg-indigo-50 flex justify-center">
-                <div class="bg-white p-8 rounded-xl shadow-lg w-full max-w-lg">
-                    <h2 class="pixel-text text-lg mb-6">Cadastro de Aluno</h2>
-                    <form class="space-y-4" onsubmit="event.preventDefault(); navigate('login')">
-                        <input type="text" placeholder="Nome Completo" class="w-full p-3 border rounded" required>
-                        <input type="text" placeholder="RA" class="w-full p-3 border rounded" required>
-                        <select class="w-full p-3 border rounded">
-                            <option>1º Ano Ensino Médio</option>
-                            <option>2º Ano Ensino Médio</option>
-                            <option>3º Ano Ensino Médio</option>
-                        </select>
-                        <input type="date" class="w-full p-3 border rounded" required>
-                        <input type="email" placeholder="E-mail" class="w-full p-3 border rounded" required>
-                        <input type="password" placeholder="Senha" class="w-full p-3 border rounded" required>
-                        <button class="w-full bg-green-500 text-white py-3 rounded-lg font-bold">CRIAR CONTA</button>
-                    </form>
-                    <button onclick="navigate('login')" class="mt-4 text-gray-500 text-sm">Voltar</button>
-                </div>
-            </div>`;
-        }
-
-        function renderRegisterTeacher() {
-            return `
-            <div class="min-h-screen p-6 bg-indigo-50 flex justify-center">
-                <div class="bg-white p-8 rounded-xl shadow-lg w-full max-w-lg">
-                    <h2 class="pixel-text text-lg mb-6">Cadastro de Professor</h2>
-                    <form class="space-y-4" onsubmit="event.preventDefault(); navigate('login')">
-                        <input type="text" placeholder="Nome Completo" class="w-full p-3 border rounded" required>
-                        <input type="text" placeholder="CPF" class="w-full p-3 border rounded" required>
-                        <select class="w-full p-3 border rounded">
-                            <option>Português</option>
-                            <option>Matemática</option>
-                        </select>
-                        <div class="border p-3 rounded text-sm">
-                            <p class="text-gray-500 mb-2">Anos que leciona:</p>
-                            <label class="mr-4"><input type="checkbox"> 1º Médio</label>
-                            <label class="mr-4"><input type="checkbox"> 2º Médio</label>
-                            <label><input type="checkbox"> 3º Médio</label>
-                        </div>
-                        <input type="date" class="w-full p-3 border rounded" required>
-                        <input type="email" placeholder="E-mail" class="w-full p-3 border rounded" required>
-                        <input type="password" placeholder="Senha" class="w-full p-3 border rounded" required>
-                        <button class="w-full bg-blue-600 text-white py-3 rounded-lg font-bold">CRIAR CONTA</button>
-                    </form>
-                    <button onclick="navigate('login')" class="mt-4 text-gray-500 text-sm">Voltar</button>
-                </div>
-            </div>`;
-        }
-
-        function renderStudentHome() {
-            const student = state.user || state.students[0];
-            return `
-            <div class="pb-20">
-                <header class="bg-indigo-600 p-6 text-white shadow-lg">
-                    <div class="flex items-center space-x-4">
-                        <div class="w-16 h-16 bg-white rounded-lg p-1 pixel-border animate-float">
-                            ${getCharSVG(student.charData)}
-                        </div>
-                        <div class="flex-1">
-                            <p class="pixel-text text-[10px]">LVL ${student.level}</p>
-                            <div class="w-full bg-indigo-900 h-3 rounded-full mt-1 border border-white overflow-hidden">
-                                <div class="bg-yellow-400 h-full" style="width: 70%"></div>
-                            </div>
-                            <p class="text-[10px] mt-1">XP: 450 / 600</p>
-                        </div>
-                    </div>
-                </header>
-
-                <main class="p-6">
-                    <h2 class="pixel-text text-gray-600 mb-4">Tarefas Pendentes</h2>
-                    <div class="space-y-4">
-                        ${state.tasks.filter(t => t.status === 'pending').map(task => `
-                            <div onclick="openTask(${task.id})" class="bg-white p-4 rounded-xl shadow-sm border-l-8 border-yellow-400 cursor-pointer hover:scale-[1.02] transition">
-                                <p class="font-bold text-gray-800">TAREFA PENDENTE</p>
-                                <p class="text-xs text-indigo-600 font-semibold">${task.subject}: ${task.title}</p>
-                                <p class="text-[10px] text-gray-400 mt-2">Prêmio: +${task.xp} XP</p>
-                            </div>
-                        `).join('')}
-                    </div>
-                </main>
-                ${renderStudentNav('home')}
-            </div>`;
-        }
-
-        function renderStudentCharacter() {
-            return `
-            <div class="p-6 pb-20">
-                <h2 class="pixel-text text-center text-lg mb-8">Personalizar</h2>
-                <div class="flex justify-center mb-10">
-                    <div class="w-48 h-48 bg-white pixel-border flex items-center justify-center p-4">
-                        ${getCharSVG(state.students[0].charData)}
-                    </div>
-                </div>
-                <div class="grid grid-cols-2 gap-4">
-                    <button class="bg-white p-4 pixel-border pixel-text">Cabelo</button>
-                    <button class="bg-white p-4 pixel-border pixel-text">Roupa</button>
-                    <button class="bg-white p-4 pixel-border pixel-text opacity-50">Arma (Lvl 10)</button>
-                    <button class="bg-white p-4 pixel-border pixel-text opacity-50">Aura (Lvl 20)</button>
-                </div>
-                ${renderStudentNav('char')}
-            </div>`;
-        }
-
-        function renderStudentProfile() {
-            const student = state.user || state.students[0];
-            return `
-            <div class="p-6 pb-20">
-                <div class="flex justify-between items-center mb-6">
-                    <h2 class="pixel-text text-lg">Perfil</h2>
-                    <button onclick="handleLogout()" class="text-red-500 font-bold text-xs border border-red-200 px-3 py-1 rounded-lg hover:bg-red-50">SAIR</button>
-                </div>
-
-                <div class="bg-white p-6 rounded-2xl shadow-lg border-2 border-indigo-100">
-                    <div class="flex flex-col items-center mb-6">
-                        <div class="w-24 h-24 mb-4">${getCharSVG(student.charData)}</div>
-                        <h2 class="text-xl font-bold">${student.name}</h2>
-                        <p class="pixel-text text-indigo-500 mt-1">${student.characterName}</p>
-                        <p class="text-sm text-gray-500">Nível ${student.level} - Explorador</p>
-                    </div>
-
-                    <div class="space-y-4 text-sm">
-                        <div class="flex justify-between border-b pb-2"><span>E-mail</span><span class="font-semibold text-right">aluno@escola.sp.gov.br</span></div>
-                        <div class="flex justify-between border-b pb-2"><span>RA</span><span class="font-semibold">${student.ra}</span></div>
-                        <div class="flex justify-between border-b pb-2"><span>Turma</span><span class="font-semibold">1ºB</span></div>
-                    </div>
-
-                    <button class="w-full mt-8 bg-indigo-600 text-white py-3 rounded-lg font-bold">TAREFAS REALIZADAS</button>
-                    <button class="w-full mt-2 border border-gray-300 py-3 rounded-lg font-bold text-gray-600">EDITAR DADOS</button>
-                </div>
-                ${renderStudentNav('profile')}
-            </div>`;
-        }
-
-        function renderTaskPage() {
-            return `
-            <div class="p-6 bg-white min-h-screen">
-                <div class="flex justify-between items-center mb-6">
-                    <h2 class="pixel-text">Missão</h2>
-                    <span class="bg-yellow-100 text-yellow-700 px-3 py-1 rounded-full text-xs font-bold">+150 XP</span>
-                </div>
-                <div class="space-y-8">
-                    <div>
-                        <p class="font-bold mb-4">1. Qual o valor de x na equação x² - 16 = 0?</p>
-                        <div class="space-y-2">
-                            <label class="block p-4 border rounded-lg cursor-pointer hover:bg-indigo-50"><input type="radio" name="q1" class="mr-2"> x = 4 ou x = -4</label>
-                            <label class="block p-4 border rounded-lg cursor-pointer hover:bg-indigo-50"><input type="radio" name="q1" class="mr-2"> x = 8</label>
-                            <label class="block p-4 border rounded-lg cursor-pointer hover:bg-indigo-50"><input type="radio" name="q1" class="mr-2"> x = 16</label>
-                        </div>
-                    </div>
-                </div>
-                <div class="mt-10">
-                    <button onclick="navigate('student_home')" class="w-full bg-green-500 text-white py-4 rounded-xl font-bold pixel-text">ENTREGAR MISSÃO</button>
-                </div>
-            </div>`;
-        }
-
-        // --- TELAS PROFESSOR ---
-
-        function renderTeacherHome() {
-            return `
-            <div class="p-6 pb-20">
-                <div class="flex justify-between items-center mb-4">
-                    <h2 class="pixel-text text-indigo-800">EduQuest Docente</h2>
-                    <button onclick="handleLogout()" class="text-red-500 font-bold text-xs border border-red-200 px-3 py-1 rounded-lg hover:bg-red-50">SAIR</button>
-                </div>
-
-                <div class="bg-indigo-800 text-white p-6 rounded-2xl mb-6 pixel-border">
-                    <p class="text-xs opacity-80">Professor(a)</p>
-                    <h2 class="text-xl font-bold">Sílvia Garcia</h2>
-                    <p class="text-sm mt-2">Matéria: Matemática</p>
-                    <p class="text-xs mt-1">CPF: ***.456.***-00</p>
-                </div>
-
-                <h3 class="pixel-text mb-4">Minhas Turmas</h3>
-                <div class="grid grid-cols-2 gap-4">
-                    ${state.classes.map(c => `
-                        <div onclick="navigate('teacher_classes')" class="bg-white p-6 rounded-xl shadow-sm text-center border-b-4 border-indigo-600 cursor-pointer hover:bg-indigo-50">
-                            <p class="text-2xl font-bold">${c}</p>
-                            <p class="text-[10px] text-gray-500">40 alunos</p>
-                        </div>
-                    `).join('')}
-                </div>
-
-                <button onclick="navigate('teacher_create_task')" class="fixed bottom-24 right-6 w-14 h-14 bg-indigo-600 text-white rounded-full shadow-xl flex items-center justify-center text-3xl font-bold">+</button>
-
-                ${renderTeacherNav('profile')}
-            </div>`;
-        }
-
-        function renderTeacherClasses() {
-            return `
-            <div class="p-6 pb-20">
-                <button onclick="navigate('teacher_home')" class="mb-4 text-sm text-indigo-600">← Voltar</button>
-                <h2 class="pixel-text mb-6 text-lg">Turma 1ºB</h2>
-                
-                <div class="space-y-3">
-                    ${state.students.concat([
-                        { name: 'Nayara Camargo', level: 4, characterName: 'Guerreira Ágil' },
-                        { name: 'João Silva', level: 2, characterName: 'Novato' }
-                    ]).map(s => `
-                        <div onclick="navigate('teacher_student_detail')" class="bg-white p-4 rounded-xl flex items-center space-x-4 cursor-pointer hover:bg-gray-50">
-                            <div class="w-10 h-10 bg-gray-200 rounded-lg flex items-center justify-center overflow-hidden">
-                                ${getCharSVG({hair:'brown', outfit:'red'})}
-                            </div>
-                            <div>
-                                <p class="font-bold text-sm">${s.name}</p>
-                                <p class="text-xs text-gray-500">Lvl ${s.level} - ${s.characterName}</p>
-                            </div>
-                        </div>
-                    `).join('')}
-                </div>
-                ${renderTeacherNav('classes')}
-            </div>`;
-        }
-
-        function renderTeacherAnalysis() {
-            return `
-            <div class="p-6 pb-20">
-                <h2 class="pixel-text text-lg mb-6">Análise de IA</h2>
-                <div class="bg-white p-4 rounded-xl mb-4 border-l-4 border-purple-500">
-                    <p class="font-bold text-sm">Relatório Semanal</p>
-                    <p class="text-xs text-gray-600 mt-2">A turma 1ºB apresentou 35% de dificuldade em "Equações de 2º Grau".</p>
-                </div>
-                <div class="bg-white p-6 rounded-xl border-2 border-purple-100 shadow-inner">
-                    <p class="pixel-text text-[10px] text-purple-600">Sugestão da IA</p>
-                    <p class="text-sm mt-3">Recomendamos aplicar uma missão de reforço sobre <strong>Delta e Bhaskara</strong> com XP dobrado para motivar a turma.</p>
-                </div>
-                ${renderTeacherNav('analysis')}
-            </div>`;
-        }
-
-        function renderCreateTask() {
-            return `
-            <div class="p-6 min-h-screen bg-white">
-                <h2 class="pixel-text mb-6">Criar Missão</h2>
-                <form class="space-y-6">
-                    <div>
-                        <label class="block text-xs font-bold mb-2">TÍTULO</label>
-                        <input type="text" placeholder="Ex: Frações" class="w-full p-3 border rounded-lg">
-                    </div>
-                    <div class="grid grid-cols-2 gap-4">
-                        <div>
-                            <label class="block text-xs font-bold mb-2">XP</label>
-                            <input type="number" value="100" class="w-full p-3 border rounded-lg">
-                        </div>
-                        <div>
-                            <label class="block text-xs font-bold mb-2">TURMA</label>
-                            <select class="w-full p-3 border rounded-lg">
-                                <option>1ºB</option>
-                                <option>2ºC</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="p-4 border-2 border-dashed rounded-xl text-center">
-                        <button type="button" class="text-indigo-600 text-xs font-bold">+ ADICIONAR QUESTÃO</button>
-                    </div>
-                    <button onclick="navigate('teacher_home')" class="w-full bg-indigo-600 text-white py-4 rounded-xl font-bold">ENVIAR</button>
-                    <button onclick="navigate('teacher_home')" type="button" class="w-full text-gray-400">Cancelar</button>
-                </form>
-            </div>`;
-        }
-
-        function renderTeacherStudentDetail() {
-            return `
-            <div class="p-6 pb-20">
-                <button onclick="navigate('teacher_classes')" class="mb-4 text-sm text-indigo-600">← Voltar</button>
-                <div class="bg-white p-6 rounded-2xl shadow-lg flex flex-col items-center">
-                    <div class="w-24 h-24 mb-4">${getCharSVG({ hair: 'black', outfit: 'blue', weapon: 'staff' })}</div>
-                    <h2 class="text-xl font-bold">Laurie Vitória</h2>
-                    <p class="pixel-text text-indigo-500">Maga da Lógica</p>
-                    <p class="text-sm text-gray-500">Nível 5</p>
-                </div>
-                <h3 class="pixel-text text-xs mt-8 mb-4">Tarefas Realizadas</h3>
-                <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-green-500">
-                    <p class="font-bold text-sm">Equações Básicas</p>
-                    <p class="text-xs text-gray-500">Nota: 10/10 • +200 XP</p>
-                </div>
-                ${renderTeacherNav('classes')}
-            </div>`;
-        }
-
-        // --- Navegação ---
-
-        function renderStudentNav(active) {
-            return `
-            <nav class="fixed bottom-0 left-0 right-0 bg-white border-t flex justify-around p-3 shadow-2xl z-50">
-                <button onclick="navigate('student_home')" class="flex flex-col items-center ${active==='home'?'text-indigo-600':'text-gray-400'}">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
-                    <span class="text-[10px] mt-1">Início</span>
-                </button>
-                <button onclick="navigate('student_character')" class="flex flex-col items-center ${active==='char'?'text-indigo-600':'text-gray-400'}">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                    <span class="text-[10px] mt-1">Avatar</span>
-                </button>
-                <button onclick="navigate('student_profile')" class="flex flex-col items-center ${active==='profile'?'text-indigo-600':'text-gray-400'}">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM4 21v-2a4 4 0 014-4h8a4 4 0 014 4v2"/></svg>
-                    <span class="text-[10px] mt-1">Perfil</span>
-                </button>
-            </nav>`;
-        }
-
-        function renderTeacherNav(active) {
-            return `
-            <nav class="fixed bottom-0 left-0 right-0 bg-white border-t flex justify-around p-3 shadow-2xl z-50">
-                <button onclick="navigate('teacher_home')" class="flex flex-col items-center ${active==='profile'?'text-indigo-600':'text-gray-400'}">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM4 21v-2a4 4 0 014-4h8a4 4 0 014 4v2"/></svg>
-                    <span class="text-[10px] mt-1">Perfil</span>
-                </button>
-                <button onclick="navigate('teacher_classes')" class="flex flex-col items-center ${active==='classes'?'text-indigo-600':'text-gray-400'}">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
-                    <span class="text-[10px] mt-1">Turmas</span>
-                </button>
-                <button onclick="navigate('teacher_analysis')" class="flex flex-col items-center ${active==='analysis'?'text-indigo-600':'text-gray-400'}">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
-                    <span class="text-[10px] mt-1">Análise</span>
-                </button>
-            </nav>`;
-        }
-
-        // --- Avatar SVG ---
-
-        function getCharSVG(data) {
-            return `
-            <svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" class="w-full h-full">
-                <rect x="24" y="24" width="16" height="16" fill="#fbd38d" />
-                <rect x="28" y="30" width="2" height="2" fill="#000" />
-                <rect x="34" y="30" width="2" height="2" fill="#000" />
-                <rect x="24" y="20" width="16" height="8" fill="${data?.hair === 'black' ? '#000' : '#8B4513'}" />
-                <rect x="22" y="40" width="20" height="14" fill="${data?.outfit === 'blue' ? '#3182ce' : '#e53e3e'}" />
-                <rect x="42" y="30" width="4" height="24" fill="#8a4baf" />
-            </svg>`;
-        }
-
-        // --- Ações de Login ---
-
-        window.navigate = (view) => {
-            state.currentView = view;
-            render();
-        };
-
-        window.handleLoginAction = () => {
-            const login = document.getElementById('login_id').value;
-            if (state.userType === 'teacher') {
-                state.currentView = 'teacher_home';
-            } else {
-                state.currentView = 'student_home';
-            }
-            render();
-        };
-
-        window.openTask = (id) => {
-            state.currentView = 'student_task';
-            render();
-        };
-
-        window.onload = render;
-
-    </script>
-</body>
-</html><!DOCTYPE html>
-<html lang="pt-br">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EduQuest - Sistema Educacional Gamificado</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
-    <style>
-        :root {
-            --pixel-font: 'Press Start 2P', cursive;
-            --main-font: 'Inter', sans-serif;
-        }
-        body { font-family: var(--main-font); background-color: #f0f2f5; }
-        .pixel-text { font-family: var(--pixel-font); font-size: 0.7rem; }
-        .pixel-border { border: 4px solid #000; box-shadow: 4px 4px 0px rgba(0,0,0,0.2); }
-        .bg-quest { background-color: #4a3bcf; }
-        
-        /* Personagem Customizável */
-        .character-preview {
-            width: 150px;
-            height: 150px;
-            background: #e2e8f0;
-            position: relative;
-            image-rendering: pixelated;
-        }
-        
-        /* Animações */
-        @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
-        .animate-float { animation: bounce 2s infinite ease-in-out; }
-    </style>
-</head>
-<body class="bg-gray-100">
-
-    <div id="app">
-        <!-- Telas serão injetadas aqui via JavaScript -->
-    </div>
-
-    <script>
-        // --- Estado Global do Sistema ---
-        const state = {
-            currentView: 'login',
-            userType: null,
-            user: null,
-            tasks: [
-                { id: 1, title: 'Equações de 2º Grau', subject: 'Matemática', xp: 150, status: 'pending', questions: [
-                    { q: 'Qual o valor de x em x² - 4 = 0?', options: ['2 e -2', '0', '4', '1'], correct: 0 }
-                ]},
-                { id: 2, title: 'Análise de Texto: Machado de Assis', subject: 'Português', xp: 100, status: 'pending', questions: [
-                    { q: 'Quem escreveu Dom Casmurro?', options: ['Clarice Lispector', 'Machado de Assis', 'Érico Veríssimo', 'Monteiro Lobato'], correct: 1 }
-                ]}
-            ],
-            students: [
-                { ra: '123', name: 'Laurie Vitória', level: 5, xp: 450, characterName: 'Maga da Lógica', charData: { hair: 'black', outfit: 'blue', weapon: 'staff' }, tasksDone: [] }
-            ],
-            classes: ['1ºA', '1ºB', '2ºC', '3ºA']
-        };
-
-        // --- Gerenciador de Visualização ---
-        function render() {
-            const app = document.getElementById('app');
-            app.innerHTML = '';
-
-            switch(state.currentView) {
-                case 'login': app.innerHTML = renderLogin(); break;
-                case 'register_student': app.innerHTML = renderRegisterStudent(); break;
-                case 'register_teacher': app.innerHTML = renderRegisterTeacher(); break;
-                case 'student_home': app.innerHTML = renderStudentHome(); break;
-                case 'student_character': app.innerHTML = renderStudentCharacter(); break;
-                case 'student_profile': app.innerHTML = renderStudentProfile(); break;
-                case 'student_task': app.innerHTML = renderTaskPage(); break;
-                case 'teacher_home': app.innerHTML = renderTeacherHome(); break;
-                case 'teacher_classes': app.innerHTML = renderTeacherClasses(); break;
-                case 'teacher_analysis': app.innerHTML = renderTeacherAnalysis(); break;
-                case 'teacher_create_task': app.innerHTML = renderCreateTask(); break;
-                case 'teacher_student_detail': app.innerHTML = renderTeacherStudentDetail(); break;
-            }
-        }
-
-        // --- Lógica de Logout ---
-        window.handleLogout = () => {
-            state.user = null;
-            state.userType = null;
-            state.currentView = 'login';
-            render();
-        };
-
-        // --- Templates de Componentes ---
-
-        function renderLogin() {
-            return `
-            <div class="min-h-screen flex flex-col items-center justify-center p-4">
-                <div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-md pixel-border">
-                    <h1 class="pixel-text text-xl mb-6 text-center text-indigo-600">EduQuest Login</h1>
-                    
-                    <div class="flex mb-6 space-x-2">
-                        <button onclick="state.userType='student'; render()" class="flex-1 py-2 ${state.userType !== 'teacher' ? 'bg-indigo-600 text-white' : 'bg-gray-200'} rounded-lg font-bold">Aluno</button>
-                        <button onclick="state.userType='teacher'; render()" class="flex-1 py-2 ${state.userType === 'teacher' ? 'bg-indigo-600 text-white' : 'bg-gray-200'} rounded-lg font-bold">Professor</button>
-                    </div>
-
-                    <div class="space-y-4">
-                        <input type="text" id="login_id" placeholder="${state.userType === 'teacher' ? 'CPF' : 'RA'}" class="w-full p-3 border rounded-lg outline-none focus:ring-2 focus:ring-indigo-400">
-                        <input type="password" id="login_pass" placeholder="Senha" class="w-full p-3 border rounded-lg outline-none focus:ring-2 focus:ring-indigo-400">
-                        <button onclick="handleLoginAction()" class="w-full bg-indigo-600 text-white py-3 rounded-lg font-bold hover:bg-indigo-700 transition">ENTRAR</button>
-                    </div>
-
-                    <p class="mt-6 text-center text-sm">
-                        Não tem conta? 
-                        <a href="#" onclick="state.currentView = state.userType === 'teacher' ? 'register_teacher' : 'register_student'; render()" class="text-indigo-600 font-bold underline">Cadastre-se</a>
-                    </p>
-                </div>
-            </div>`;
-        }
-
-        function renderRegisterStudent() {
-            return `
-            <div class="min-h-screen p-6 bg-indigo-50 flex justify-center">
-                <div class="bg-white p-8 rounded-xl shadow-lg w-full max-w-lg">
-                    <h2 class="pixel-text text-lg mb-6">Cadastro de Aluno</h2>
-                    <form class="space-y-4" onsubmit="event.preventDefault(); navigate('login')">
-                        <input type="text" placeholder="Nome Completo" class="w-full p-3 border rounded" required>
-                        <input type="text" placeholder="RA" class="w-full p-3 border rounded" required>
-                        <select class="w-full p-3 border rounded">
-                            <option>1º Ano Ensino Médio</option>
-                            <option>2º Ano Ensino Médio</option>
-                            <option>3º Ano Ensino Médio</option>
-                        </select>
-                        <input type="date" class="w-full p-3 border rounded" required>
-                        <input type="email" placeholder="E-mail" class="w-full p-3 border rounded" required>
-                        <input type="password" placeholder="Senha" class="w-full p-3 border rounded" required>
-                        <button class="w-full bg-green-500 text-white py-3 rounded-lg font-bold">CRIAR CONTA</button>
-                    </form>
-                    <button onclick="navigate('login')" class="mt-4 text-gray-500 text-sm">Voltar</button>
-                </div>
-            </div>`;
-        }
-
-        function renderRegisterTeacher() {
-            return `
-            <div class="min-h-screen p-6 bg-indigo-50 flex justify-center">
-                <div class="bg-white p-8 rounded-xl shadow-lg w-full max-w-lg">
-                    <h2 class="pixel-text text-lg mb-6">Cadastro de Professor</h2>
-                    <form class="space-y-4" onsubmit="event.preventDefault(); navigate('login')">
-                        <input type="text" placeholder="Nome Completo" class="w-full p-3 border rounded" required>
-                        <input type="text" placeholder="CPF" class="w-full p-3 border rounded" required>
-                        <select class="w-full p-3 border rounded">
-                            <option>Português</option>
-                            <option>Matemática</option>
-                        </select>
-                        <div class="border p-3 rounded text-sm">
-                            <p class="text-gray-500 mb-2">Anos que leciona:</p>
-                            <label class="mr-4"><input type="checkbox"> 1º Médio</label>
-                            <label class="mr-4"><input type="checkbox"> 2º Médio</label>
-                            <label><input type="checkbox"> 3º Médio</label>
-                        </div>
-                        <input type="date" class="w-full p-3 border rounded" required>
-                        <input type="email" placeholder="E-mail" class="w-full p-3 border rounded" required>
-                        <input type="password" placeholder="Senha" class="w-full p-3 border rounded" required>
-                        <button class="w-full bg-blue-600 text-white py-3 rounded-lg font-bold">CRIAR CONTA</button>
-                    </form>
-                    <button onclick="navigate('login')" class="mt-4 text-gray-500 text-sm">Voltar</button>
-                </div>
-            </div>`;
-        }
-
-        function renderStudentHome() {
-            const student = state.user || state.students[0];
-            return `
-            <div class="pb-20">
-                <header class="bg-indigo-600 p-6 text-white shadow-lg">
-                    <div class="flex items-center space-x-4">
-                        <div class="w-16 h-16 bg-white rounded-lg p-1 pixel-border animate-float">
-                            ${getCharSVG(student.charData)}
-                        </div>
-                        <div class="flex-1">
-                            <p class="pixel-text text-[10px]">LVL ${student.level}</p>
-                            <div class="w-full bg-indigo-900 h-3 rounded-full mt-1 border border-white overflow-hidden">
-                                <div class="bg-yellow-400 h-full" style="width: 70%"></div>
-                            </div>
-                            <p class="text-[10px] mt-1">XP: 450 / 600</p>
-                        </div>
-                    </div>
-                </header>
-
-                <main class="p-6">
-                    <h2 class="pixel-text text-gray-600 mb-4">Tarefas Pendentes</h2>
-                    <div class="space-y-4">
-                        ${state.tasks.filter(t => t.status === 'pending').map(task => `
-                            <div onclick="openTask(${task.id})" class="bg-white p-4 rounded-xl shadow-sm border-l-8 border-yellow-400 cursor-pointer hover:scale-[1.02] transition">
-                                <p class="font-bold text-gray-800">TAREFA PENDENTE</p>
-                                <p class="text-xs text-indigo-600 font-semibold">${task.subject}: ${task.title}</p>
-                                <p class="text-[10px] text-gray-400 mt-2">Prêmio: +${task.xp} XP</p>
-                            </div>
-                        `).join('')}
-                    </div>
-                </main>
-                ${renderStudentNav('home')}
-            </div>`;
-        }
-
-        function renderStudentCharacter() {
-            return `
-            <div class="p-6 pb-20">
-                <h2 class="pixel-text text-center text-lg mb-8">Personalizar</h2>
-                <div class="flex justify-center mb-10">
-                    <div class="w-48 h-48 bg-white pixel-border flex items-center justify-center p-4">
-                        ${getCharSVG(state.students[0].charData)}
-                    </div>
-                </div>
-                <div class="grid grid-cols-2 gap-4">
-                    <button class="bg-white p-4 pixel-border pixel-text">Cabelo</button>
-                    <button class="bg-white p-4 pixel-border pixel-text">Roupa</button>
-                    <button class="bg-white p-4 pixel-border pixel-text opacity-50">Arma (Lvl 10)</button>
-                    <button class="bg-white p-4 pixel-border pixel-text opacity-50">Aura (Lvl 20)</button>
-                </div>
-                ${renderStudentNav('char')}
-            </div>`;
-        }
-
-        function renderStudentProfile() {
-            const student = state.user || state.students[0];
-            return `
-            <div class="p-6 pb-20">
-                <div class="flex justify-between items-center mb-6">
-                    <h2 class="pixel-text text-lg">Perfil</h2>
-                    <button onclick="handleLogout()" class="text-red-500 font-bold text-xs border border-red-200 px-3 py-1 rounded-lg hover:bg-red-50">SAIR</button>
-                </div>
-
-                <div class="bg-white p-6 rounded-2xl shadow-lg border-2 border-indigo-100">
-                    <div class="flex flex-col items-center mb-6">
-                        <div class="w-24 h-24 mb-4">${getCharSVG(student.charData)}</div>
-                        <h2 class="text-xl font-bold">${student.name}</h2>
-                        <p class="pixel-text text-indigo-500 mt-1">${student.characterName}</p>
-                        <p class="text-sm text-gray-500">Nível ${student.level} - Explorador</p>
-                    </div>
-
-                    <div class="space-y-4 text-sm">
-                        <div class="flex justify-between border-b pb-2"><span>E-mail</span><span class="font-semibold text-right">aluno@escola.sp.gov.br</span></div>
-                        <div class="flex justify-between border-b pb-2"><span>RA</span><span class="font-semibold">${student.ra}</span></div>
-                        <div class="flex justify-between border-b pb-2"><span>Turma</span><span class="font-semibold">1ºB</span></div>
-                    </div>
-
-                    <button class="w-full mt-8 bg-indigo-600 text-white py-3 rounded-lg font-bold">TAREFAS REALIZADAS</button>
-                    <button class="w-full mt-2 border border-gray-300 py-3 rounded-lg font-bold text-gray-600">EDITAR DADOS</button>
-                </div>
-                ${renderStudentNav('profile')}
-            </div>`;
-        }
-
-        function renderTaskPage() {
-            return `
-            <div class="p-6 bg-white min-h-screen">
-                <div class="flex justify-between items-center mb-6">
-                    <h2 class="pixel-text">Missão</h2>
-                    <span class="bg-yellow-100 text-yellow-700 px-3 py-1 rounded-full text-xs font-bold">+150 XP</span>
-                </div>
-                <div class="space-y-8">
-                    <div>
-                        <p class="font-bold mb-4">1. Qual o valor de x na equação x² - 16 = 0?</p>
-                        <div class="space-y-2">
-                            <label class="block p-4 border rounded-lg cursor-pointer hover:bg-indigo-50"><input type="radio" name="q1" class="mr-2"> x = 4 ou x = -4</label>
-                            <label class="block p-4 border rounded-lg cursor-pointer hover:bg-indigo-50"><input type="radio" name="q1" class="mr-2"> x = 8</label>
-                            <label class="block p-4 border rounded-lg cursor-pointer hover:bg-indigo-50"><input type="radio" name="q1" class="mr-2"> x = 16</label>
-                        </div>
-                    </div>
-                </div>
-                <div class="mt-10">
-                    <button onclick="navigate('student_home')" class="w-full bg-green-500 text-white py-4 rounded-xl font-bold pixel-text">ENTREGAR MISSÃO</button>
-                </div>
-            </div>`;
-        }
-
-        // --- TELAS PROFESSOR ---
-
-        function renderTeacherHome() {
-            return `
-            <div class="p-6 pb-20">
-                <div class="flex justify-between items-center mb-4">
-                    <h2 class="pixel-text text-indigo-800">EduQuest Docente</h2>
-                    <button onclick="handleLogout()" class="text-red-500 font-bold text-xs border border-red-200 px-3 py-1 rounded-lg hover:bg-red-50">SAIR</button>
-                </div>
-
-                <div class="bg-indigo-800 text-white p-6 rounded-2xl mb-6 pixel-border">
-                    <p class="text-xs opacity-80">Professor(a)</p>
-                    <h2 class="text-xl font-bold">Sílvia Garcia</h2>
-                    <p class="text-sm mt-2">Matéria: Matemática</p>
-                    <p class="text-xs mt-1">CPF: ***.456.***-00</p>
-                </div>
-
-                <h3 class="pixel-text mb-4">Minhas Turmas</h3>
-                <div class="grid grid-cols-2 gap-4">
-                    ${state.classes.map(c => `
-                        <div onclick="navigate('teacher_classes')" class="bg-white p-6 rounded-xl shadow-sm text-center border-b-4 border-indigo-600 cursor-pointer hover:bg-indigo-50">
-                            <p class="text-2xl font-bold">${c}</p>
-                            <p class="text-[10px] text-gray-500">40 alunos</p>
-                        </div>
-                    `).join('')}
-                </div>
-
-                <button onclick="navigate('teacher_create_task')" class="fixed bottom-24 right-6 w-14 h-14 bg-indigo-600 text-white rounded-full shadow-xl flex items-center justify-center text-3xl font-bold">+</button>
-
-                ${renderTeacherNav('profile')}
-            </div>`;
-        }
-
-        function renderTeacherClasses() {
-            return `
-            <div class="p-6 pb-20">
-                <button onclick="navigate('teacher_home')" class="mb-4 text-sm text-indigo-600">← Voltar</button>
-                <h2 class="pixel-text mb-6 text-lg">Turma 1ºB</h2>
-                
-                <div class="space-y-3">
-                    ${state.students.concat([
-                        { name: 'Nayara Camargo', level: 4, characterName: 'Guerreira Ágil' },
-                        { name: 'João Silva', level: 2, characterName: 'Novato' }
-                    ]).map(s => `
-                        <div onclick="navigate('teacher_student_detail')" class="bg-white p-4 rounded-xl flex items-center space-x-4 cursor-pointer hover:bg-gray-50">
-                            <div class="w-10 h-10 bg-gray-200 rounded-lg flex items-center justify-center overflow-hidden">
-                                ${getCharSVG({hair:'brown', outfit:'red'})}
-                            </div>
-                            <div>
-                                <p class="font-bold text-sm">${s.name}</p>
-                                <p class="text-xs text-gray-500">Lvl ${s.level} - ${s.characterName}</p>
-                            </div>
-                        </div>
-                    `).join('')}
-                </div>
-                ${renderTeacherNav('classes')}
-            </div>`;
-        }
-
-        function renderTeacherAnalysis() {
-            return `
-            <div class="p-6 pb-20">
-                <h2 class="pixel-text text-lg mb-6">Análise de IA</h2>
-                <div class="bg-white p-4 rounded-xl mb-4 border-l-4 border-purple-500">
-                    <p class="font-bold text-sm">Relatório Semanal</p>
-                    <p class="text-xs text-gray-600 mt-2">A turma 1ºB apresentou 35% de dificuldade em "Equações de 2º Grau".</p>
-                </div>
-                <div class="bg-white p-6 rounded-xl border-2 border-purple-100 shadow-inner">
-                    <p class="pixel-text text-[10px] text-purple-600">Sugestão da IA</p>
-                    <p class="text-sm mt-3">Recomendamos aplicar uma missão de reforço sobre <strong>Delta e Bhaskara</strong> com XP dobrado para motivar a turma.</p>
-                </div>
-                ${renderTeacherNav('analysis')}
-            </div>`;
-        }
-
-        function renderCreateTask() {
-            return `
-            <div class="p-6 min-h-screen bg-white">
-                <h2 class="pixel-text mb-6">Criar Missão</h2>
-                <form class="space-y-6">
-                    <div>
-                        <label class="block text-xs font-bold mb-2">TÍTULO</label>
-                        <input type="text" placeholder="Ex: Frações" class="w-full p-3 border rounded-lg">
-                    </div>
-                    <div class="grid grid-cols-2 gap-4">
-                        <div>
-                            <label class="block text-xs font-bold mb-2">XP</label>
-                            <input type="number" value="100" class="w-full p-3 border rounded-lg">
-                        </div>
-                        <div>
-                            <label class="block text-xs font-bold mb-2">TURMA</label>
-                            <select class="w-full p-3 border rounded-lg">
-                                <option>1ºB</option>
-                                <option>2ºC</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="p-4 border-2 border-dashed rounded-xl text-center">
-                        <button type="button" class="text-indigo-600 text-xs font-bold">+ ADICIONAR QUESTÃO</button>
-                    </div>
-                    <button onclick="navigate('teacher_home')" class="w-full bg-indigo-600 text-white py-4 rounded-xl font-bold">ENVIAR</button>
-                    <button onclick="navigate('teacher_home')" type="button" class="w-full text-gray-400">Cancelar</button>
-                </form>
-            </div>`;
-        }
-
-        function renderTeacherStudentDetail() {
-            return `
-            <div class="p-6 pb-20">
-                <button onclick="navigate('teacher_classes')" class="mb-4 text-sm text-indigo-600">← Voltar</button>
-                <div class="bg-white p-6 rounded-2xl shadow-lg flex flex-col items-center">
-                    <div class="w-24 h-24 mb-4">${getCharSVG({ hair: 'black', outfit: 'blue', weapon: 'staff' })}</div>
-                    <h2 class="text-xl font-bold">Laurie Vitória</h2>
-                    <p class="pixel-text text-indigo-500">Maga da Lógica</p>
-                    <p class="text-sm text-gray-500">Nível 5</p>
-                </div>
-                <h3 class="pixel-text text-xs mt-8 mb-4">Tarefas Realizadas</h3>
-                <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-green-500">
-                    <p class="font-bold text-sm">Equações Básicas</p>
-                    <p class="text-xs text-gray-500">Nota: 10/10 • +200 XP</p>
-                </div>
-                ${renderTeacherNav('classes')}
-            </div>`;
-        }
-
-        // --- Navegação ---
-
-        function renderStudentNav(active) {
-            return `
-            <nav class="fixed bottom-0 left-0 right-0 bg-white border-t flex justify-around p-3 shadow-2xl z-50">
-                <button onclick="navigate('student_home')" class="flex flex-col items-center ${active==='home'?'text-indigo-600':'text-gray-400'}">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
-                    <span class="text-[10px] mt-1">Início</span>
-                </button>
-                <button onclick="navigate('student_character')" class="flex flex-col items-center ${active==='char'?'text-indigo-600':'text-gray-400'}">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                    <span class="text-[10px] mt-1">Avatar</span>
-                </button>
-                <button onclick="navigate('student_profile')" class="flex flex-col items-center ${active==='profile'?'text-indigo-600':'text-gray-400'}">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM4 21v-2a4 4 0 014-4h8a4 4 0 014 4v2"/></svg>
-                    <span class="text-[10px] mt-1">Perfil</span>
-                </button>
-            </nav>`;
-        }
-
-        function renderTeacherNav(active) {
-            return `
-            <nav class="fixed bottom-0 left-0 right-0 bg-white border-t flex justify-around p-3 shadow-2xl z-50">
-                <button onclick="navigate('teacher_home')" class="flex flex-col items-center ${active==='profile'?'text-indigo-600':'text-gray-400'}">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM4 21v-2a4 4 0 014-4h8a4 4 0 014 4v2"/></svg>
-                    <span class="text-[10px] mt-1">Perfil</span>
-                </button>
-                <button onclick="navigate('teacher_classes')" class="flex flex-col items-center ${active==='classes'?'text-indigo-600':'text-gray-400'}">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
-                    <span class="text-[10px] mt-1">Turmas</span>
-                </button>
-                <button onclick="navigate('teacher_analysis')" class="flex flex-col items-center ${active==='analysis'?'text-indigo-600':'text-gray-400'}">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
-                    <span class="text-[10px] mt-1">Análise</span>
-                </button>
-            </nav>`;
-        }
-
-        // --- Avatar SVG ---
-
-        function getCharSVG(data) {
-            return `
-            <svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" class="w-full h-full">
-                <rect x="24" y="24" width="16" height="16" fill="#fbd38d" />
-                <rect x="28" y="30" width="2" height="2" fill="#000" />
-                <rect x="34" y="30" width="2" height="2" fill="#000" />
-                <rect x="24" y="20" width="16" height="8" fill="${data?.hair === 'black' ? '#000' : '#8B4513'}" />
-                <rect x="22" y="40" width="20" height="14" fill="${data?.outfit === 'blue' ? '#3182ce' : '#e53e3e'}" />
-                <rect x="42" y="30" width="4" height="24" fill="#8a4baf" />
-            </svg>`;
-        }
-
-        // --- Ações de Login ---
-
-        window.navigate = (view) => {
-            state.currentView = view;
-            render();
-        };
-
-        window.handleLoginAction = () => {
-            const login = document.getElementById('login_id').value;
-            if (state.userType === 'teacher') {
-                state.currentView = 'teacher_home';
-            } else {
-                state.currentView = 'student_home';
-            }
-            render();
-        };
-
-        window.openTask = (id) => {
-            state.currentView = 'student_task';
-            render();
-        };
-
-        window.onload = render;
-
-    </script>
+<body class="bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50">
+<div id="app"></div>
+<script>
+const state = {
+    currentView: 'login', userType: null, user: null, selectedSubject: 1,
+    selectedBimester: 1, selectedWeek: 1, selectedClass: '1ºB', selectedTaskId: null,
+    selectedStudentRa: null, selectedMissionForAnswers: null,
+    activeCustomizationTab: 'hair', adminTab: 'subjects',
+    currentMission: { title: '', subject: 1, class: '1ºB', bimester: 1, week: 1, xp: 0, questions: [] },
+    hairStyles: [{ id: 'short', name: 'Curto', icon: '💇' }, { id: 'long', name: 'Longo', icon: '💇‍♀️' }, { id: 'curly', name: 'Cacheado', icon: '👩‍🦱' }, { id: 'spiky', name: 'Espetado', icon: '💥' }, { id: 'mohawk', name: 'Moicano', icon: '🎸' }, { id: 'bun', name: 'Coque', icon: '🍩' }],
+    hairColors: ['#4A3728', '#FFD700', '#FF6347', '#8B4513', '#C0C0C0', '#FF69B4', '#00CED1', '#9400D3'],
+    outfitStyles: [{ id: 'basic', name: 'Básico', icon: '👕' }, { id: 'armor', name: 'Armadura', icon: '🛡️' }, { id: 'robe', name: 'Manto', icon: '🧙' }, { id: 'sporty', name: 'Esportivo', icon: '🏃' }],
+    outfitColors: ['#8B5CF6', '#C084FC', '#E879F9', '#FBBF24', '#34D399', '#60A5FA', '#F472B6', '#A78BFA'],
+    accessories: [{ id: 'none', name: 'Nenhum', icon: '🚫' }, { id: 'sword', name: 'Espada Mágica', icon: '⚔️' }, { id: 'staff', name: 'Cajado Arcano', icon: '🪄' }, { id: 'shield', name: 'Escudo Protetor', icon: '🛡️' }, { id: 'book', name: 'Grimório', icon: '📖' }, { id: 'wand', name: 'Varinha Estelar', icon: '✨' }],
+    availableTitles: [{ id: 'initiate', name: 'Aprendiz', icon: '🌱', minLevel: 1 }, { id: 'apprentice', name: 'Aprendiz Mágico', icon: '🔰', minLevel: 2 }, { id: 'adept', name: 'Adepto Arcano', icon: '⚡', minLevel: 3 }, { id: 'mage', name: 'Mago', icon: '🔮', minLevel: 5 }, { id: 'archmage', name: 'Arquimago', icon: '✨', minLevel: 8 }, { id: 'sage', name: 'Sábio', icon: '📜', minLevel: 10 }, { id: 'legend', name: 'Lenda Viva', icon: '🌟', minLevel: 15 }, { id: 'mythic', name: 'Mítico', icon: '🏆', minLevel: 20 }],
+    subjects: [{ id: 1, name: 'Português Mágico', icon: '📚' }, { id: 2, name: 'Matemática Encantada', icon: '🔢' }, { id: 3, name: 'História Mística', icon: '🏰' }, { id: 4, name: 'Geografia Astral', icon: '🌍' }, { id: 5, name: 'Ciências Alquímicas', icon: '🧪' }, { id: 6, name: 'Inglês Élfico', icon: '🗣️' }],
+    teachers: [{ id: 1, name: 'Profª Sílvia Garcia', cpf: '123.456.789-00', email: 'silvia@escola.com', password: '123456', subjects: [1, 2], classes: ['1ºB', '2ºC'] }],
+    availableClasses: ['1ºA', '1ºB', '2ºC', '3ºA', '3ºB', '4ºC'],
+    bimesterStructure: { 1: { name: '1º Bimestre Mágico', weeks: 8 }, 2: { name: '2º Bimestre Arcano', weeks: 8 }, 3: { name: '3º Bimestre Encantado', weeks: 8 }, 4: { name: '4º Bimestre Lendário', weeks: 8 } },
+    tasks: [{ id: 1, title: 'Equações de 2º Grau', subject: 2, teacherId: 1, class: '1ºB', bimester: 1, week: 3, xp: 150, questions: [{ q: 'Qual o valor de x em x² - 4 = 0?', options: ['2 e -2', '0', '4', '1'], correct: 0, difficulty: 'medium' }, { q: 'Resolva: 3x² - 27 = 0', options: ['x = ±3', 'x = 9', 'x = 0', 'x = 27'], correct: 0, difficulty: 'medium' }] },
+    { id: 2, title: 'Interpretação de Texto', subject: 1, teacherId: 1, class: '1ºB', bimester: 1, week: 3, xp: 100, questions: [{ q: 'Qual é a ideia principal do texto?', options: ['A importância da leitura', 'Como escrever bem', 'História do Brasil', 'Gramática'], correct: 0, difficulty: 'easy' }] },
+    { id: 3, title: 'Revolução Francesa', subject: 3, teacherId: 1, class: '1ºB', bimester: 2, week: 1, xp: 200, questions: [{ q: 'Em que ano ocorreu a Revolução Francesa?', options: ['1789', '1776', '1804', '1815'], correct: 0, difficulty: 'medium' }] },
+    { id: 4, title: 'Clima e Tempo', subject: 4, teacherId: 1, class: '1ºB', bimester: 1, week: 5, xp: 120, questions: [{ q: 'Qual a diferença entre clima e tempo?', options: ['Clima é longo prazo, tempo é curto prazo', 'São a mesma coisa', 'Tempo é só chuva', 'Clima é só temperatura'], correct: 0, difficulty: 'easy' }] },
+    { id: 5, title: 'Células e Organismos', subject: 5, teacherId: 1, class: '1ºB', bimester: 2, week: 3, xp: 180, questions: [{ q: 'Qual organela é responsável pela respiração celular?', options: ['Mitocôndria', 'Núcleo', 'Ribossomo', 'Cloroplasto'], correct: 0, difficulty: 'hard' }] },
+    { id: 6, title: 'Verbos em Inglês', subject: 6, teacherId: 1, class: '1ºB', bimester: 1, week: 7, xp: 130, questions: [{ q: 'Qual é o passado de "go"?', options: ['Went', 'Goed', 'Goes', 'Going'], correct: 0, difficulty: 'medium' }] }],
+    students: [{ ra: '123', name: 'Laurie Vitória', level: 5, xp: 450, xpToNextLevel: 600, class: '1ºB', avatarName: 'Maga da Lógica', title: 'mage', customTitle: '', password: '123', charData: { gender: 'female', hairStyle: 'long', hairColor: '#C084FC', skinTone: '#FFD93D', outfitStyle: 'robe', outfitColor: '#8B5CF6', accessory: 'staff' }, tasksDone: [1], tasksPending: [2, 3, 4, 5, 6], achievements: [{ id: 1, name: 'Primeira Missão', icon: '🌟' }], answers: {} },
+    { ra: '1234', name: 'Carlos Eduardo', level: 3, xp: 250, xpToNextLevel: 400, class: '1ºB', avatarName: 'Guerreiro do Saber', title: 'apprentice', customTitle: '', password: '1234', charData: { gender: 'male', hairStyle: 'spiky', hairColor: '#FBBF24', skinTone: '#F5C6A0', outfitStyle: 'armor', outfitColor: '#E879F9', accessory: 'sword' }, tasksDone: [], tasksPending: [1, 2, 3, 4, 5, 6], achievements: [], answers: {} }]
+};
+
+function getSubjectName(id) { const s = state.subjects.find(s => s.id === id); return s ? s.name : 'Desconhecida'; }
+function getSubjectIcon(id) { const s = state.subjects.find(s => s.id === id); return s ? s.icon : '📚'; }
+function getTasksByFilter(subjectId, className, bimester, week) { return state.tasks.filter(t => { if (subjectId && t.subject !== subjectId) return false; if (className && t.class !== className) return false; if (bimester && t.bimester !== bimester) return false; if (week && t.week !== week) return false; return true; }); }
+function calculateXP(questions) { let total = 0; questions.forEach(q => { switch(q.difficulty) { case 'easy': total += 50; break; case 'medium': total += 100; break; case 'hard': total += 200; break; default: total += 50; } }); return total; }
+function getFullTitle(student) { if (student.customTitle) return student.customTitle; const t = state.availableTitles.find(t => t.id === student.title); return t ? `${t.icon} ${t.name}` : '🌱 Aprendiz'; }
+function getCharSVG(c = {}) { const oc = c.outfitColor || '#8B5CF6', acc = c.accessory || 'none'; return `<svg viewBox="0 0 100 100" width="64" height="64"><circle cx="50" cy="35" r="18" fill="#FFD93D"/><rect x="35" y="55" width="30" height="35" rx="5" fill="${oc}"/><rect x="30" y="55" width="10" height="25" rx="3" fill="${oc}"/><rect x="60" y="55" width="10" height="25" rx="3" fill="${oc}"/><circle cx="44" cy="33" r="3" fill="#333"/><circle cx="56" cy="33" r="3" fill="#333"/><path d="M 44 42 Q 50 48 56 42" stroke="#333" stroke-width="2" fill="none"/>${acc === 'sword' ? '<rect x="75" y="45" width="5" height="30" fill="#C0C0C0"/>' : ''}${acc === 'staff' ? '<rect x="78" y="30" width="4" height="45" fill="#8B4513"/><circle cx="80" cy="28" r="6" fill="#9B59B6"/>' : ''}</svg>`; }
+function getDetailedCharSVG(c = {}, size = 200) { const hs = c.hairStyle || 'short', hc = c.hairColor || '#8B5CF6', st = c.skinTone || '#FFD93D', os = c.outfitStyle || 'basic', oc = c.outfitColor || '#8B5CF6', acc = c.accessory || 'none'; let op = '', hp = '', ap = ''; switch(os) { case 'armor': op = `<rect x="60" y="90" width="80" height="80" rx="8" fill="${oc}" stroke="#C084FC" stroke-width="3"/><rect x="65" y="95" width="70" height="8" fill="#E879F9"/>`; break; case 'robe': op = `<path d="M 55 90 L 145 90 L 155 175 L 45 175 Z" fill="${oc}" stroke="#C084FC" stroke-width="3"/>`; break; default: op = `<rect x="65" y="95" width="70" height="75" rx="5" fill="${oc}" stroke="#C084FC" stroke-width="2"/>`; } switch(hs) { case 'long': hp = `<path d="M 65 55 Q 100 30 135 55 L 140 120 L 130 120 L 120 60 Q 100 35 80 60 L 70 120 L 60 120 Z" fill="${hc}"/>`; break; case 'spiky': hp = `<polygon points="70,60 80,20 90,55" fill="${hc}"/><polygon points="90,55 100,15 110,55" fill="${hc}"/><polygon points="110,55 120,20 130,60" fill="${hc}"/>`; break; case 'curly': hp = `<circle cx="75" cy="45" r="15" fill="${hc}"/><circle cx="100" cy="40" r="18" fill="${hc}"/><circle cx="125" cy="45" r="15" fill="${hc}"/>`; break; case 'mohawk': hp = `<rect x="85" y="25" width="30" height="35" fill="${hc}"/>`; break; case 'bun': hp = `<circle cx="100" cy="35" r="20" fill="${hc}"/>`; break; default: hp = `<path d="M 65 55 Q 100 30 135 55" fill="${hc}"/>`; } switch(acc) { case 'sword': ap = `<rect x="150" y="80" width="8" height="60" fill="#E879F9" stroke="#8B5CF6" stroke-width="1"/><rect x="145" y="75" width="18" height="10" fill="#C084FC"/>`; break; case 'staff': ap = `<rect x="152" y="60" width="6" height="80" fill="#8B4513"/><circle cx="155" cy="55" r="12" fill="#E879F9"/><circle cx="155" cy="55" r="6" fill="#FBBF24"/>`; break; case 'shield': ap = `<ellipse cx="40" cy="115" rx="18" ry="22" fill="#C084FC" stroke="#8B5CF6" stroke-width="2"/>`; break; case 'book': ap = `<rect x="35" y="110" width="22" height="16" fill="#8B4513"/><rect x="38" y="113" width="16" height="10" fill="#FEF3C7"/>`; break; case 'wand': ap = `<line x1="40" y1="150" x2="55" y2="100" stroke="#8B4513" stroke-width="5"/><circle cx="55" cy="100" r="5" fill="#FBBF24"/>`; break; } return `<svg viewBox="0 0 200 200" width="${size}" height="${size}">${op}<rect x="35" y="100" width="35" height="22" rx="3" fill="${oc}" stroke="#C084FC" stroke-width="2"/><rect x="130" y="100" width="35" height="22" rx="3" fill="${oc}" stroke="#C084FC" stroke-width="2"/><rect x="75" y="165" width="22" height="30" fill="#4A3728"/><rect x="103" y="165" width="22" height="30" fill="#4A3728"/><circle cx="100" cy="70" r="35" fill="${st}" stroke="#333" stroke-width="2"/><circle cx="88" cy="65" r="4" fill="#333"/><circle cx="112" cy="65" r="4" fill="#333"/><circle cx="89" cy="64" r="1.5" fill="white"/><circle cx="113" cy="64" r="1.5" fill="white"/><path d="M 90 80 Q 100 90 110 80" stroke="#333" stroke-width="2" fill="none"/>${hp}${ap}</svg>`; }
+function clearCurrentMission() { state.currentMission = { title: '', subject: state.selectedSubject, class: state.selectedClass, bimester: state.selectedBimester, week: state.selectedWeek, xp: 0, questions: [] }; }
+function navigate(view) { state.currentView = view; render(); }
+
+function handleLogin() { const id = document.getElementById('login_id')?.value, pass = document.getElementById('login_pass')?.value; if (!id || !pass) { alert('Preencha todos os campos!'); return; } if (state.userType === 'teacher') { const t = state.teachers.find(t => t.cpf === id && t.password === pass); if (t) { state.user = t; state.userType = 'teacher'; navigate('teacher_home'); } else alert('Professor não encontrado!'); } else if (state.userType === 'student') { const s = state.students.find(s => s.ra === id && s.password === pass); if (s) { state.user = s; state.userType = 'student'; navigate('student_home'); } else alert('Aluno não encontrado!'); } }
+function handleAdminLogin() { const e = document.getElementById('admin_email')?.value, p = document.getElementById('admin_pass')?.value; if (e === 'admin@eduquest.com' && p === 'admin123') { state.userType = 'admin'; navigate('admin_dashboard'); } else alert('Credenciais inválidas!'); }
+function handleLogout() { state.user = null; state.userType = null; state.currentView = 'login'; render(); }
+
+// ADMIN FUNCTIONS
+function addSubject() { const n = document.getElementById('subject_name')?.value, i = document.getElementById('subject_icon')?.value || '📚'; if (!n) { alert('Digite o nome da matéria!'); return; } state.subjects.push({ id: state.subjects.length + 1, name: n, icon: i }); alert(`✨ Matéria "${n}" cadastrada!`); document.getElementById('subject_name').value = ''; document.getElementById('subject_icon').value = '📚'; render(); }
+function deleteSubject(id) { const s = state.subjects.find(s => s.id === id); if (confirm(`Excluir "${s.name}"?`)) { state.tasks = state.tasks.filter(t => t.subject !== id); state.subjects = state.subjects.filter(s => s.id !== id); alert('Excluído!'); render(); } }
+function addTeacher() { const n = document.getElementById('teacher_name')?.value, cpf = document.getElementById('teacher_cpf')?.value, e = document.getElementById('teacher_email')?.value, p = document.getElementById('teacher_password')?.value, subSel = document.getElementById('teacher_subjects'), clsSel = document.getElementById('teacher_classes'); if (!n || !cpf || !e || !p) { alert('Preencha todos os campos!'); return; } if (state.teachers.some(t => t.cpf === cpf)) { alert('CPF já existe!'); return; } const subs = Array.from(subSel.selectedOptions).map(o => parseInt(o.value)), cls = Array.from(clsSel.selectedOptions).map(o => o.value); if (subs.length === 0 || cls.length === 0) { alert('Selecione matérias e turmas!'); return; } state.teachers.push({ id: state.teachers.length + 1, name: n, cpf, email: e, password: p, subjects: subs, classes: cls }); alert(`Professor ${n} cadastrado!`); document.getElementById('teacher_name').value = ''; document.getElementById('teacher_cpf').value = ''; document.getElementById('teacher_email').value = ''; document.getElementById('teacher_password').value = ''; Array.from(subSel.options).forEach(o => o.selected = false); Array.from(clsSel.options).forEach(o => o.selected = false); render(); }
+function deleteTeacher(id) { const t = state.teachers.find(t => t.id === id); if (confirm(`Excluir "${t.name}"?`)) { state.teachers = state.teachers.filter(t => t.id !== id); alert('Excluído!'); render(); } }
+function addClass() { const n = document.getElementById('new_class_name')?.value; if (!n) { alert('Digite o nome da turma!'); return; } if (state.availableClasses.includes(n)) { alert('Turma já existe!'); return; } state.availableClasses.push(n); alert(`Turma "${n}" criada!`); document.getElementById('new_class_name').value = ''; render(); }
+function deleteClass(cn) { const count = state.students.filter(s => s.class === cn).length; if (count > 0) { alert(`Turma tem ${count} aluno(s)!`); return; } if (confirm(`Excluir "${cn}"?`)) { state.availableClasses = state.availableClasses.filter(c => c !== cn); alert('Excluída!'); render(); } }
+function addStudent() { const ra = document.getElementById('student_ra')?.value, n = document.getElementById('student_name')?.value, p = document.getElementById('student_password')?.value, cls = document.getElementById('student_class')?.value, av = document.getElementById('student_avatar')?.value; if (!ra || !n || !p || !cls || !av) { alert('Preencha todos os campos!'); return; } if (state.students.some(s => s.ra === ra)) { alert('RA já existe!'); return; } state.students.push({ ra, name: n, level: 1, xp: 0, xpToNextLevel: 100, class: cls, avatarName: av, title: 'initiate', customTitle: '', password: p, charData: { gender: 'female', hairStyle: 'short', hairColor: '#8B5CF6', skinTone: '#FFD93D', outfitStyle: 'basic', outfitColor: '#8B5CF6', accessory: 'none' }, tasksDone: [], tasksPending: [], achievements: [], answers: {} }); alert(`Aluno ${n} matriculado!`); document.getElementById('student_ra').value = ''; document.getElementById('student_name').value = ''; document.getElementById('student_password').value = ''; document.getElementById('student_avatar').value = ''; render(); }
+function deleteStudent(ra) { const s = state.students.find(s => s.ra === ra); if (confirm(`Excluir "${s.name}"?`)) { state.students = state.students.filter(s => s.ra !== ra); alert('Excluído!'); render(); } }
+
+// TEACHER FUNCTIONS
+function saveMissionAndContinue() { const t = document.getElementById('mission_title')?.value, s = parseInt(document.getElementById('mission_subject')?.value), c = document.getElementById('mission_class')?.value, b = parseInt(document.getElementById('mission_bimester')?.value), w = parseInt(document.getElementById('mission_week')?.value); if (!t) { alert('Digite o título!'); return; } state.currentMission = { ...state.currentMission, title: t, subject: s, class: c, bimester: b, week: w }; state.selectedSubject = s; state.selectedBimester = b; state.selectedWeek = w; navigate('teacher_create_questions'); }
+function addQuestion() { const qt = document.getElementById('question_text')?.value, opts = [document.getElementById('option_0')?.value, document.getElementById('option_1')?.value, document.getElementById('option_2')?.value, document.getElementById('option_3')?.value], ca = parseInt(document.querySelector('input[name="correct_answer"]:checked')?.value || 0), d = document.getElementById('question_difficulty')?.value; if (!qt || opts.some(o => !o)) { alert('Preencha pergunta e alternativas!'); return; } state.currentMission.questions.push({ q: qt, options: opts, correct: ca, difficulty: d }); state.currentMission.xp = calculateXP(state.currentMission.questions); document.getElementById('question_text').value = ''; ['option_0', 'option_1', 'option_2', 'option_3'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; }); const radio = document.querySelector('input[name="correct_answer"][value="0"]'); if (radio) radio.checked = true; render(); }
+function removeQuestion(i) { state.currentMission.questions.splice(i, 1); state.currentMission.xp = calculateXP(state.currentMission.questions); render(); }
+function finishMission() { if (state.currentMission.questions.length === 0) { alert('Adicione pelo menos uma pergunta!'); return; } const newTask = { id: state.tasks.length + 1, title: state.currentMission.title, subject: state.currentMission.subject, class: state.currentMission.class, bimester: state.currentMission.bimester, week: state.currentMission.week, xp: state.currentMission.xp, questions: [...state.currentMission.questions], teacherId: state.user?.id || 1 }; state.tasks.push(newTask); alert(`Missão "${newTask.title}" criada!`); clearCurrentMission(); navigate('teacher_week'); }
+function saveMissionDirectly() { const t = document.getElementById('mission_title')?.value; if (!t) { alert('Digite o título!'); return; } if (confirm('Salvar sem perguntas?')) { const s = parseInt(document.getElementById('mission_subject')?.value), c = document.getElementById('mission_class')?.value, b = parseInt(document.getElementById('mission_bimester')?.value), w = parseInt(document.getElementById('mission_week')?.value); state.tasks.push({ id: state.tasks.length + 1, title: t, subject: s, class: c, bimester: b, week: w, xp: 0, questions: [], teacherId: state.user?.id || 1 }); alert('Missão salva!'); clearCurrentMission(); navigate('teacher_week'); } }
+function submitTask(taskId) { const task = state.tasks.find(t => t.id === taskId); if (!task) return; let correct = 0; const answers = {}; task.questions.forEach((q, i) => { const selected = document.querySelector(`input[name="q_${i}"]:checked`); const answerValue = selected ? parseInt(selected.value) : -1; answers[i] = answerValue; if (selected && parseInt(selected.value) === q.correct) correct++; }); const earned = Math.round((correct / task.questions.length) * task.xp); const student = state.user; if (student) { if (!student.answers) student.answers = {}; student.answers[taskId] = answers; student.xp += earned; while (student.xp >= student.xpToNextLevel) { student.xp -= student.xpToNextLevel; student.level++; student.xpToNextLevel = Math.round(student.xpToNextLevel * 1.5); } if (student.tasksPending) student.tasksPending = student.tasksPending.filter(id => id !== taskId); if (!student.tasksDone) student.tasksDone = []; if (!student.tasksDone.includes(taskId)) student.tasksDone.push(taskId); } alert(`Missão concluída! +${earned} XP`); navigate('student_home'); }
+function saveStudentProfile() { const s = state.user; if (!s) return; const newAvatar = document.getElementById('profile_avatar_name')?.value, newTitle = document.getElementById('profile_title')?.value, newCustom = document.getElementById('profile_custom_title')?.value; if (newAvatar && newAvatar.trim()) s.avatarName = newAvatar.trim(); if (newTitle === 'custom') { if (newCustom && newCustom.trim()) { s.customTitle = newCustom.trim(); s.title = 'custom'; } } else { s.title = newTitle; s.customTitle = ''; } alert('Perfil atualizado!'); navigate('student_profile'); }
+function saveCharCustomization() { alert('Personagem atualizado!'); navigate('student_home'); }
+function viewStudentAnswers(studentRa, taskId) { state.selectedStudentRa = studentRa; state.selectedMissionForAnswers = taskId; navigate('teacher_student_answers'); }
+
+// RENDER ADMIN
+function renderAdminDashboard() { return `<div class="min-h-screen"><header class="magic-bg text-white p-6"><div class="flex justify-between"><div><h1 class="text-3xl font-bold">✨ Painel Admin ✨</h1><p class="text-purple-200">Gerencie matérias, professores, turmas e alunos</p></div><button onclick="handleLogout()" class="bg-red-500 px-4 py-2 rounded-lg">Sair</button></div></header><div class="p-6"><div class="flex flex-wrap gap-3 mb-6"><button onclick="state.adminTab='subjects'; render()" class="px-5 py-2 rounded-lg font-bold ${state.adminTab === 'subjects' ? 'magic-bg text-white' : 'bg-white/90 text-purple-600'}">📚 Matérias</button><button onclick="state.adminTab='teachers'; render()" class="px-5 py-2 rounded-lg font-bold ${state.adminTab === 'teachers' ? 'magic-bg text-white' : 'bg-white/90 text-purple-600'}">👨‍🏫 Professores</button><button onclick="state.adminTab='classes'; render()" class="px-5 py-2 rounded-lg font-bold ${state.adminTab === 'classes' ? 'magic-bg text-white' : 'bg-white/90 text-purple-600'}">🏫 Turmas</button><button onclick="state.adminTab='students'; render()" class="px-5 py-2 rounded-lg font-bold ${state.adminTab === 'students' ? 'magic-bg text-white' : 'bg-white/90 text-purple-600'}">🎒 Alunos</button></div><div class="grid grid-cols-4 gap-3 mb-6"><div class="bg-white/90 p-3 rounded-xl text-center"><p class="text-2xl font-bold text-purple-600">${state.subjects.length}</p><p class="text-xs">Matérias</p></div><div class="bg-white/90 p-3 rounded-xl text-center"><p class="text-2xl font-bold text-pink-600">${state.teachers.length}</p><p class="text-xs">Professores</p></div><div class="bg-white/90 p-3 rounded-xl text-center"><p class="text-2xl font-bold text-indigo-600">${state.availableClasses.length}</p><p class="text-xs">Turmas</p></div><div class="bg-white/90 p-3 rounded-xl text-center"><p class="text-2xl font-bold text-green-600">${state.students.length}</p><p class="text-xs">Alunos</p></div></div>${state.adminTab === 'subjects' ? `<div class="bg-white/90 rounded-xl p-6 mb-6"><h2 class="text-xl font-bold mb-4">➕ Adicionar Matéria</h2><div class="space-y-4"><input type="text" id="subject_name" placeholder="Nome" class="w-full p-3 border rounded-lg"><input type="text" id="subject_icon" placeholder="Ícone" value="📚" class="w-full p-3 border rounded-lg"><button onclick="addSubject()" class="btn-magic text-white px-6 py-3 rounded-lg font-bold w-full">✨ CADASTRAR ✨</button></div></div><div class="bg-white/90 rounded-xl p-6"><h2 class="text-xl font-bold mb-4">📋 Matérias</h2>${state.subjects.map(s => `<div class="flex justify-between p-4 bg-purple-50 rounded-lg mb-2"><div><span class="text-3xl">${s.icon}</span><span class="font-bold ml-2">${s.name}</span></div><button onclick="deleteSubject(${s.id})" class="bg-red-500 text-white px-3 py-1 rounded-lg">🗑️</button></div>`).join('')}</div>` : state.adminTab === 'teachers' ? `<div class="bg-white/90 rounded-xl p-6 mb-6"><h2 class="text-xl font-bold mb-4">➕ Cadastrar Professor</h2><div class="space-y-4"><div class="grid grid-cols-2 gap-4"><input type="text" id="teacher_name" placeholder="Nome" class="p-3 border rounded-lg"><input type="text" id="teacher_cpf" placeholder="CPF" class="p-3 border rounded-lg"></div><div class="grid grid-cols-2 gap-4"><input type="email" id="teacher_email" placeholder="E-mail" class="p-3 border rounded-lg"><input type="text" id="teacher_password" placeholder="Senha" class="p-3 border rounded-lg"></div><select id="teacher_subjects" multiple size="4" class="w-full p-3 border rounded-lg">${state.subjects.map(s => `<option value="${s.id}">${s.icon} ${s.name}</option>`).join('')}</select><select id="teacher_classes" multiple size="4" class="w-full p-3 border rounded-lg">${state.availableClasses.map(c => `<option value="${c}">🏫 ${c}</option>`).join('')}</select><button onclick="addTeacher()" class="btn-magic text-white py-3 rounded-lg font-bold w-full">✨ CADASTRAR ✨</button></div></div><div class="bg-white/90 rounded-xl p-6"><h2 class="text-xl font-bold mb-4">👨‍🏫 Professores</h2>${state.teachers.map(t => `<div class="p-4 bg-purple-50 rounded-lg mb-2"><div class="font-bold">${t.name}</div><div class="text-sm">📧 ${t.email}</div><div class="text-sm">🔑 ${t.password}</div><button onclick="deleteTeacher(${t.id})" class="mt-2 bg-red-500 text-white px-3 py-1 rounded-lg">🗑️ Excluir</button></div>`).join('')}</div>` : state.adminTab === 'classes' ? `<div class="bg-white/90 rounded-xl p-6 mb-6"><h2 class="text-xl font-bold mb-4">➕ Criar Turma</h2><input type="text" id="new_class_name" placeholder="Ex: 5ºA" class="w-full p-3 border rounded-lg mb-4"><button onclick="addClass()" class="btn-magic text-white py-3 rounded-lg font-bold w-full">✨ CRIAR ✨</button></div><div class="bg-white/90 rounded-xl p-6"><h2 class="text-xl font-bold mb-4">🏫 Turmas</h2><div class="grid grid-cols-2 gap-3">${state.availableClasses.map(c => `<div class="flex justify-between p-4 bg-purple-50 rounded-lg"><span class="font-bold">${c}</span><button onclick="deleteClass('${c}')" class="bg-red-500 text-white px-3 py-1 rounded-lg">🗑️</button></div>`).join('')}</div></div>` : `<div class="bg-white/90 rounded-xl p-6 mb-6"><h2 class="text-xl font-bold mb-4">➕ Matricular Aluno</h2><div class="grid grid-cols-2 gap-4 mb-4"><input type="text" id="student_ra" placeholder="RA" class="p-3 border rounded-lg"><input type="text" id="student_name" placeholder="Nome" class="p-3 border rounded-lg"></div><div class="grid grid-cols-2 gap-4 mb-4"><input type="text" id="student_password" placeholder="Senha" class="p-3 border rounded-lg"><select id="student_class" class="p-3 border rounded-lg"><option value="">Turma</option>${state.availableClasses.map(c => `<option value="${c}">${c}</option>`).join('')}</select></div><input type="text" id="student_avatar" placeholder="Nome do Avatar" class="w-full p-3 border rounded-lg mb-4"><button onclick="addStudent()" class="btn-magic text-white py-3 rounded-lg font-bold w-full">✨ MATRICULAR ✨</button></div><div class="bg-white/90 rounded-xl p-6"><h2 class="text-xl font-bold mb-4">🎒 Alunos</h2>${state.students.map(s => `<div class="p-4 bg-purple-50 rounded-lg mb-2"><div class="font-bold">${s.name}</div><div>✨ ${s.avatarName} | Nível ${s.level} | ${s.class}</div><div>RA: ${s.ra} | Senha: ${s.password}</div><button onclick="deleteStudent('${s.ra}')" class="mt-2 bg-red-500 text-white px-3 py-1 rounded-lg">🗑️ Excluir</button></div>`).join('')}</div>`}</div></div>`; }
+
+// RENDER TEACHER (resumido)
+function renderTeacherHome() { const t = state.user || state.teachers[0]; return `<div class="min-h-screen pb-20"><header class="magic-bg text-white p-6"><div class="flex justify-between"><div><h1 class="text-2xl font-bold">${t.name}</h1><p class="text-purple-200">Mestre dos Conhecimentos</p></div><button onclick="handleLogout()" class="bg-red-500 px-4 py-2 rounded-lg">SAIR</button></div></header><main class="p-6"><h2 class="text-xl font-bold mb-4">📚 Matérias</h2>${t.subjects.map(id => `<button onclick="state.selectedSubject=${id}; navigate('teacher_subject')" class="w-full bg-white/90 p-4 rounded-xl shadow-lg mb-3 text-left border-l-4 border-purple-500">${getSubjectIcon(id)} ${getSubjectName(id)}</button>`).join('')}<h2 class="text-xl font-bold mb-4 mt-6">🏫 Turmas</h2><div class="grid grid-cols-2 gap-4">${t.classes.map(c => `<button onclick="state.selectedClass='${c}'; navigate('teacher_classes')" class="bg-white/90 p-6 rounded-xl shadow-lg text-center"><span class="text-3xl font-bold">${c}</span></button>`).join('')}</div></main><nav class="fixed bottom-0 w-full bg-white/95 border-t-4 border-purple-500 flex justify-around py-3"><button onclick="navigate('teacher_home')" class="text-purple-600">🏠 Home</button><button onclick="clearCurrentMission(); navigate('teacher_create_task')" class="text-gray-400">➕ Missão</button></nav></div>`; }
+function renderTeacherSubject() { return `<div class="min-h-screen p-6 pb-20"><button onclick="navigate('teacher_home')" class="mb-4 text-purple-600">← Voltar</button><h2 class="text-3xl font-bold mb-6">${getSubjectIcon(state.selectedSubject)} ${getSubjectName(state.selectedSubject)}</h2>${Object.entries(state.bimesterStructure).map(([bim, data]) => `<button onclick="state.selectedBimester=${bim}; navigate('teacher_bimester')" class="w-full bg-white/90 p-6 rounded-xl shadow-lg mb-3 text-left"><div class="font-bold text-lg">✨ ${data.name}</div><div class="text-sm">${data.weeks} semanas</div></button>`).join('')}<nav class="fixed bottom-0 w-full bg-white/95 border-t flex justify-around py-3"><button onclick="navigate('teacher_home')" class="text-gray-400">🏠 Home</button><button onclick="clearCurrentMission(); navigate('teacher_create_task')" class="text-gray-400">➕ Missão</button></nav></div>`; }
+function renderTeacherBimester() { const b = state.selectedBimester, data = state.bimesterStructure[b]; return `<div class="min-h-screen p-6 pb-20"><button onclick="navigate('teacher_subject')" class="mb-4 text-purple-600">← Voltar</button><h2 class="text-2xl font-bold mb-2">✨ ${data.name}</h2><p class="text-gray-500 mb-6">${getSubjectName(state.selectedSubject)}</p>${Array.from({length: data.weeks}, (_, i) => i + 1).map(w => `<button onclick="state.selectedWeek=${w}; navigate('teacher_week')" class="w-full bg-white/90 p-6 rounded-xl shadow-lg mb-3 text-left"><div class="flex justify-between"><span class="font-bold text-lg">🔮 Semana ${w}</span><span>${getTasksByFilter(state.selectedSubject, null, b, w).length} missões</span></div></button>`).join('')}<nav class="fixed bottom-0 w-full bg-white/95 border-t flex justify-around py-3"><button onclick="navigate('teacher_home')" class="text-gray-400">🏠 Home</button><button onclick="clearCurrentMission(); navigate('teacher_create_task')" class="text-gray-400">➕ Missão</button></nav></div>`; }
+function renderTeacherWeek() { const b = state.selectedBimester, w = state.selectedWeek, tasks = getTasksByFilter(state.selectedSubject, null, b, w); return `<div class="min-h-screen p-6 pb-20"><button onclick="navigate('teacher_bimester')" class="mb-4 text-purple-600">← Voltar</button><h2 class="text-2xl font-bold mb-2">${getSubjectName(state.selectedSubject)}</h2><p class="text-gray-500 mb-6">Semana ${w}</p>${tasks.length ? tasks.map(t => `<div onclick="state.selectedTaskId=${t.id}; navigate('teacher_task_detail')" class="bg-white/90 p-4 rounded-xl shadow-lg mb-3 cursor-pointer border-l-4 border-purple-500"><div class="flex justify-between"><div><div class="font-bold">${t.title}</div><div class="text-sm">${t.questions.length} questões</div></div><span class="xp-badge text-white px-3 py-1 rounded-full text-sm">+${t.xp} XP</span></div></div>`).join('') : '<div class="text-center py-12">Nenhuma missão</div>'}<button onclick="clearCurrentMission(); navigate('teacher_create_task')" class="w-full magic-bg text-white py-4 rounded-xl font-bold">✨ CRIAR MISSÃO ✨</button><nav class="fixed bottom-0 w-full bg-white/95 border-t flex justify-around py-3"><button onclick="navigate('teacher_home')" class="text-gray-400">🏠 Home</button><button onclick="clearCurrentMission(); navigate('teacher_create_task')" class="text-gray-400">➕ Missão</button></nav></div>`; }
+function renderCreateTask() { const m = state.currentMission; return `<div class="min-h-screen p-6 pb-20"><button onclick="navigate('teacher_week')" class="mb-4 text-purple-600">← Voltar</button><h2 class="text-2xl font-bold mb-6">📝 Criar Missão</h2><div class="bg-white/90 p-6 rounded-xl shadow-lg space-y-4"><input type="text" id="mission_title" value="${m.title}" placeholder="Título" class="w-full p-3 border rounded-lg"><select id="mission_subject" class="w-full p-3 border rounded-lg">${(state.user || state.teachers[0]).subjects.map(id => `<option value="${id}" ${m.subject === id ? 'selected' : ''}>${getSubjectName(id)}</option>`).join('')}</select><select id="mission_class" class="w-full p-3 border rounded-lg">${(state.user || state.teachers[0]).classes.map(c => `<option value="${c}" ${m.class === c ? 'selected' : ''}>${c}</option>`).join('')}</select><div class="grid grid-cols-2 gap-4"><select id="mission_bimester" class="p-3 border rounded-lg">${Object.entries(state.bimesterStructure).map(([bim, data]) => `<option value="${bim}" ${m.bimester == bim ? 'selected' : ''}>${data.name}</option>`).join('')}</select><select id="mission_week" class="p-3 border rounded-lg">${[1,2,3,4,5,6,7,8].map(w => `<option value="${w}" ${m.week == w ? 'selected' : ''}>Semana ${w}</option>`).join('')}</select></div><div class="bg-purple-50 p-4 rounded-lg"><div class="flex justify-between"><span class="font-bold">XP Total:</span><span class="xp-badge text-white px-4 py-2 rounded-full">${m.xp} XP</span></div></div></div><button onclick="saveMissionAndContinue()" class="w-full bg-purple-600 text-white py-4 rounded-xl font-bold mt-4 mb-3">✨ ADICIONAR PERGUNTAS ✨</button><button onclick="saveMissionDirectly()" class="w-full bg-blue-500 text-white py-3 rounded-xl font-bold">💾 SALVAR</button></div>`; }
+function renderCreateQuestions() { const m = state.currentMission; return `<div class="min-h-screen p-6 pb-20"><button onclick="navigate('teacher_create_task')" class="mb-4 text-purple-600">← Voltar</button><div class="bg-white/90 p-6 rounded-xl shadow-lg mb-6"><h2 class="text-xl font-bold">📝 ${m.title || 'Nova Missão'}</h2><div class="flex gap-2"><span>${getSubjectName(m.subject)}</span><span>${m.class}</span><span class="xp-badge text-white px-3 py-1 rounded-full">${m.xp} XP</span></div></div><div id="questions-container" class="space-y-4 mb-6">${m.questions.length === 0 ? '<p class="text-center py-8">Nenhuma pergunta</p>' : m.questions.map((q, i) => `<div class="bg-white/90 p-4 rounded-lg shadow"><div class="flex justify-between"><h3 class="font-bold">Q${i+1}</h3><button onclick="removeQuestion(${i})" class="text-red-500">✕</button></div><p>${q.q}</p><div class="grid grid-cols-2 gap-2 mt-2">${q.options.map((opt, oi) => `<div class="p-2 rounded text-sm ${oi === q.correct ? 'bg-green-100' : 'bg-gray-50'}">${oi === q.correct ? '✓ ' : ''}${opt}</div>`).join('')}</div></div>`).join('')}</div><div class="bg-white/90 p-6 rounded-lg shadow-lg mb-6"><h3 class="font-bold mb-4">➕ Nova Pergunta</h3><form onsubmit="event.preventDefault(); addQuestion()"><input type="text" id="question_text" placeholder="Pergunta" class="w-full p-3 border rounded-lg mb-3" required>${[0,1,2,3].map(i => `<div class="flex items-center gap-3 mb-2"><input type="radio" name="correct_answer" value="${i}" ${i === 0 ? 'checked' : ''}><input type="text" id="option_${i}" placeholder="Alternativa ${i+1}" class="flex-1 p-3 border rounded-lg" required></div>`).join('')}<select id="question_difficulty" class="w-full p-3 border rounded-lg mb-3"><option value="easy">🟢 Fácil (50 XP)</option><option value="medium" selected>🟡 Médio (100 XP)</option><option value="hard">🔴 Difícil (200 XP)</option></select><button type="submit" class="w-full bg-green-500 text-white py-3 rounded-lg font-bold">✅ ADICIONAR</button></form></div><button onclick="finishMission()" class="w-full magic-bg text-white py-4 rounded-xl font-bold">🎯 FINALIZAR (${m.questions.length} questões | ${m.xp} XP)</button></div>`; }
+function renderTaskDetail() { const t = state.tasks.find(t => t.id === state.selectedTaskId); if (!t) return '<p>Missão não encontrada</p>'; return `<div class="min-h-screen p-6 pb-20"><button onclick="navigate('teacher_week')" class="mb-4 text-purple-600">← Voltar</button><div class="bg-white/90 p-6 rounded-xl shadow-lg mb-6"><h2 class="text-2xl font-bold">✨ ${t.title}</h2><div class="flex gap-2 mt-2"><span class="bg-purple-100 px-3 py-1 rounded-full">${getSubjectName(t.subject)}</span><span class="xp-badge text-white px-3 py-1 rounded-full">${t.xp} XP</span></div></div>${t.questions.map((q, i) => `<div class="bg-white/90 p-4 rounded-lg shadow mb-3"><h4 class="font-bold">Q${i+1}</h4><p>${q.q}</p><div class="grid grid-cols-2 gap-2 mt-2">${q.options.map((opt, oi) => `<div class="p-2 rounded text-sm ${oi === q.correct ? 'bg-green-100' : 'bg-gray-50'}">${oi === q.correct ? '✓ ' : ''}${opt}</div>`).join('')}</div></div>`).join('')}</div>`; }
+function renderTeacherClasses() { const students = state.students.filter(s => s.class === state.selectedClass); return `<div class="min-h-screen p-6 pb-20"><button onclick="navigate('teacher_home')" class="mb-4 text-purple-600">← Voltar</button><h2 class="text-3xl font-bold mb-6">🏫 Turma ${state.selectedClass}</h2>${students.map(s => `<div onclick="state.selectedStudentRa='${s.ra}'; navigate('teacher_student_detail')" class="bg-white/90 p-4 rounded-xl shadow-lg flex items-center gap-4 cursor-pointer mb-3"><div class="w-16 h-16">${getCharSVG(s.charData)}</div><div><div class="font-bold">${s.name}</div><div class="text-sm">${s.avatarName} • Nível ${s.level}</div><div class="text-xs">⭐ ${s.xp} XP</div></div><div class="ml-auto"><div class="xp-badge text-white px-3 py-1 rounded-full text-xs">${Math.round((s.tasksDone.length / (s.tasksDone.length + s.tasksPending.length)) * 100)}%</div></div></div>`).join('')}</div>`; }
+function renderTeacherStudentDetail() { const s = state.students.find(s => s.ra === state.selectedStudentRa); if (!s) return '<p>Aluno não encontrado</p>'; const allTasks = state.tasks.filter(t => t.class === s.class), pending = allTasks.filter(t => s.tasksPending?.includes(t.id)), done = allTasks.filter(t => s.tasksDone?.includes(t.id)), totalXP = done.reduce((sum, t) => sum + t.xp, 0), rate = (done.length / (done.length + pending.length)) * 100, xpProgress = Math.min((s.xp / s.xpToNextLevel) * 100, 100), titleDisplay = getFullTitle(s); return `<div class="min-h-screen pb-20"><header class="magic-bg text-white p-6"><button onclick="navigate('teacher_classes')" class="mb-4 text-white">← Voltar</button><div class="flex items-center gap-6"><div class="w-24 h-24 bg-white rounded-full p-2">${getCharSVG(s.charData)}</div><div><h1 class="text-3xl font-bold">${s.avatarName}</h1><p>${s.name}</p><div class="flex gap-2 mt-2"><span class="bg-white/20 px-3 py-1 rounded-full text-sm">Nível ${s.level}</span><span class="bg-white/20 px-3 py-1 rounded-full text-sm">${titleDisplay}</span></div></div></div></header><main class="p-6"><div class="grid grid-cols-4 gap-4 mb-6"><div class="bg-white/90 p-4 rounded-xl text-center"><p class="text-2xl font-bold text-purple-600">${done.length}</p><p class="text-xs">Concluídas</p></div><div class="bg-white/90 p-4 rounded-xl text-center"><p class="text-2xl font-bold text-pink-600">${pending.length}</p><p class="text-xs">Pendentes</p></div><div class="bg-white/90 p-4 rounded-xl text-center"><p class="text-2xl font-bold text-indigo-600">${totalXP}</p><p class="text-xs">XP Total</p></div><div class="bg-white/90 p-4 rounded-xl text-center"><p class="text-2xl font-bold text-yellow-600">${Math.round(rate)}%</p><p class="text-xs">Conclusão</p></div></div><div class="bg-white/90 rounded-xl p-6 mb-6"><h3 class="font-bold mb-3">⭐ Progresso</h3><div class="flex justify-between text-sm"><span>${s.xp} / ${s.xpToNextLevel} XP</span><span>${xpProgress.toFixed(0)}%</span></div><div class="w-full bg-purple-200 rounded-full h-4"><div class="magic-bg h-4 rounded-full" style="width: ${xpProgress}%"></div></div></div><h2 class="text-xl font-bold mb-4">⚡ Missões Pendentes</h2>${pending.map(t => `<div class="bg-white/90 p-4 rounded-xl shadow-lg mb-3 border-l-4 border-yellow-500"><div class="flex justify-between"><div><div class="font-bold">${t.title}</div><div class="text-sm">${getSubjectName(t.subject)}</div></div><span class="xp-badge text-white px-3 py-1 rounded-full text-sm">+${t.xp} XP</span></div></div>`).join('')}<h2 class="text-xl font-bold mb-4 mt-6">✅ Missões Concluídas</h2>${done.map(t => `<div class="bg-white/90 p-4 rounded-xl shadow-lg mb-3 border-l-4 border-green-500"><div class="flex justify-between items-center"><div><div class="font-bold">${t.title}</div><div class="text-sm">${getSubjectName(t.subject)}</div></div><div class="flex gap-2"><span class="bg-green-100 text-green-700 px-3 py-1 rounded-full text-sm">+${t.xp} XP</span><button onclick="viewStudentAnswers('${s.ra}', ${t.id})" class="bg-purple-500 text-white px-3 py-1 rounded-lg text-sm hover:bg-purple-600">📋 Ver Respostas</button></div></div></div>`).join('')}</main></div>`; }
+
+// NOVA TELA: Ver Respostas do Aluno
+function renderTeacherStudentAnswers() { const s = state.students.find(s => s.ra === state.selectedStudentRa); const task = state.tasks.find(t => t.id === state.selectedMissionForAnswers); if (!s || !task) return '<p>Dados não encontrados</p>'; const answers = s.answers?.[task.id] || {}; let correctCount = 0; task.questions.forEach((q, i) => { if (answers[i] === q.correct) correctCount++; }); return `<div class="min-h-screen pb-20"><header class="magic-bg text-white p-6"><button onclick="navigate('teacher_student_detail')" class="mb-4 text-white">← Voltar ao Aluno</button><div class="flex items-center gap-4"><div class="w-16 h-16 bg-white rounded-full p-1">${getCharSVG(s.charData)}</div><div><h1 class="text-2xl font-bold">${s.avatarName}</h1><p class="text-purple-200">${task.title}</p></div></div></header><main class="p-6"><div class="bg-white/90 rounded-xl p-6 mb-6"><h3 class="font-bold mb-2">📊 Resultado da Missão</h3><div class="grid grid-cols-3 gap-4 text-center"><div><p class="text-3xl font-bold text-purple-600">${correctCount}</p><p class="text-xs">Acertos</p></div><div><p class="text-3xl font-bold text-pink-600">${task.questions.length - correctCount}</p><p class="text-xs">Erros</p></div><div><p class="text-3xl font-bold text-green-600">${Math.round((correctCount/task.questions.length)*100)}%</p><p class="text-xs">Aproveitamento</p></div></div></div><h2 class="text-xl font-bold mb-4">📝 Respostas do Aluno</h2>${task.questions.map((q, i) => { const isCorrect = answers[i] === q.correct; const studentAnswer = answers[i] !== undefined ? q.options[answers[i]] : 'Não respondida'; return `<div class="bg-white/90 p-6 rounded-xl shadow-lg mb-4 ${isCorrect ? 'correct-answer' : 'wrong-answer'}"><div class="flex justify-between items-start mb-3"><h3 class="font-bold text-lg">Questão ${i+1}</h3><span class="px-3 py-1 rounded-full text-sm font-bold ${isCorrect ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">${isCorrect ? '✓ Correta' : '✗ Incorreta'}</span></div><p class="mb-4 text-gray-700">${q.q}</p><div class="grid grid-cols-2 gap-3 mb-4"><div class="p-3 bg-gray-50 rounded-lg"><p class="text-xs text-gray-500 mb-1">📌 Resposta do Aluno:</p><p class="font-semibold ${isCorrect ? 'text-green-700' : 'text-red-700'}">${studentAnswer}</p></div><div class="p-3 bg-green-50 rounded-lg"><p class="text-xs text-gray-500 mb-1">✅ Resposta Correta:</p><p class="font-semibold text-green-700">${q.options[q.correct]}</p></div></div><div class="text-sm text-gray-500">💡 Dica: ${q.difficulty === 'easy' ? 'Questão fácil - conceito básico' : q.difficulty === 'medium' ? 'Questão média - requer atenção' : 'Questão difícil - desafio avançado'}</div></div>`; }).join('')}<button onclick="navigate('teacher_student_detail')" class="w-full bg-purple-600 text-white py-3 rounded-xl font-bold mt-4">← Voltar para o Aluno</button></main></div>`; }
+
+// RENDER STUDENT
+function renderStudentHome() { const s = state.user || state.students[0]; const pending = state.tasks.filter(t => s.tasksPending?.includes(t.id)), progress = Math.min((s.xp / s.xpToNextLevel) * 100, 100), titleDisplay = getFullTitle(s); return `<div class="min-h-screen pb-24"><header class="magic-bg text-white p-6"><div class="flex justify-between"><div><h1 class="text-2xl font-bold">✨ Olá, ${s.avatarName}!</h1><p class="text-purple-200">${titleDisplay}</p></div><div class="w-16 h-16 bg-white rounded-full p-1">${getCharSVG(s.charData)}</div></div><div class="bg-white/20 rounded-lg p-4 mt-4"><div class="flex justify-between"><span>⭐ Nível ${s.level}</span><span>${s.xp}/${s.xpToNextLevel} XP</span></div><div class="w-full bg-white/30 rounded-full h-4"><div class="bg-gradient-to-r from-yellow-300 to-yellow-500 h-full rounded-full" style="width: ${progress}%"></div></div></div></header><main class="p-4"><div class="grid grid-cols-3 gap-3 mb-6"><div class="bg-white/90 p-4 rounded-xl text-center"><p class="text-2xl font-bold text-purple-600">${s.tasksDone.length}</p><p class="text-xs">Missões</p></div><div class="bg-white/90 p-4 rounded-xl text-center"><p class="text-2xl font-bold text-yellow-600">${s.xp}</p><p class="text-xs">XP</p></div><div class="bg-white/90 p-4 rounded-xl text-center"><p class="text-2xl font-bold text-green-600">${s.level}</p><p class="text-xs">Level</p></div></div><h2 class="text-lg font-bold mb-3">⚡ Missões Disponíveis</h2>${pending.map(t => `<div onclick="state.selectedTaskId=${t.id}; navigate('student_do_task')" class="bg-white/90 p-4 rounded-xl shadow-lg cursor-pointer mb-3 border-l-4 border-purple-500"><div class="flex justify-between"><div><div class="font-bold">${t.title}</div><div class="text-sm">${getSubjectName(t.subject)}</div></div><span class="xp-badge text-white px-3 py-1 rounded-full text-sm">+${t.xp} XP</span></div></div>`).join('')}</main><nav class="fixed bottom-0 w-full bg-white/95 border-t-4 border-purple-500 flex justify-around py-3"><button onclick="navigate('student_home')" class="text-purple-600">🏠</button><button onclick="navigate('student_tasks')" class="text-gray-400">📋</button><button onclick="navigate('student_customize')" class="text-gray-400">✨</button><button onclick="navigate('student_profile')" class="text-gray-400">👤</button></nav></div>`; }
+function renderStudentTasks() { const s = state.user || state.students[0]; const pending = state.tasks.filter(t => s.tasksPending?.includes(t.id)), done = state.tasks.filter(t => s.tasksDone?.includes(t.id)); return `<div class="min-h-screen pb-20"><header class="bg-white/95 p-4"><button onclick="navigate('student_home')" class="mb-2 text-purple-600">← Voltar</button><h1 class="text-2xl font-bold">📋 Minhas Missões</h1></header><div class="p-4"><h2 class="font-bold mb-3">📝 Pendentes (${pending.length})</h2>${pending.map(t => `<div onclick="state.selectedTaskId=${t.id}; navigate('student_do_task')" class="bg-white/90 p-4 rounded-xl shadow-lg cursor-pointer mb-3 border-l-4 border-purple-500"><div class="flex justify-between"><div><div class="font-bold">${t.title}</div><div class="text-sm">${getSubjectName(t.subject)}</div></div><span class="xp-badge text-white px-3 py-1 rounded-full text-sm">+${t.xp} XP</span></div></div>`).join('')}<h2 class="font-bold mb-3 mt-6">✅ Concluídas (${done.length})</h2>${done.map(t => `<div class="bg-white/90 p-4 rounded-xl shadow-lg mb-3 border-l-4 border-green-500 opacity-85"><div class="font-bold">${t.title}</div><div class="text-sm">${getSubjectName(t.subject)} | +${t.xp} XP</div></div>`).join('')}</div><nav class="fixed bottom-0 w-full bg-white/95 border-t flex justify-around py-3"><button onclick="navigate('student_home')" class="text-gray-400">🏠</button><button onclick="navigate('student_tasks')" class="text-purple-600">📋</button><button onclick="navigate('student_customize')" class="text-gray-400">✨</button><button onclick="navigate('student_profile')" class="text-gray-400">👤</button></nav></div>`; }
+function renderDoTask() { const t = state.tasks.find(t => t.id === state.selectedTaskId); if (!t) return '<p>Missão não encontrada</p>'; return `<div class="min-h-screen pb-20"><header class="bg-white/95 p-4"><button onclick="navigate('student_tasks')" class="mb-2 text-purple-600">← Voltar</button><h1 class="text-2xl font-bold">✨ ${t.title}</h1><span class="xp-badge text-white px-3 py-1 rounded-full text-sm">+${t.xp} XP</span></header><div class="p-4"><form onsubmit="event.preventDefault(); submitTask(${t.id})">${t.questions.map((q, i) => `<div class="bg-white/90 p-6 rounded-xl shadow-lg mb-4"><h3 class="font-bold mb-3">Q${i+1}</h3><p class="mb-4">${q.q}</p>${q.options.map((opt, oi) => `<label class="flex items-center p-3 border rounded-lg cursor-pointer mb-2"><input type="radio" name="q_${i}" value="${oi}" class="mr-3" required>${opt}</label>`).join('')}</div>`).join('')}<button type="submit" class="w-full magic-bg text-white py-4 rounded-xl font-bold">✨ ENTREGAR ✨</button></form></div></div>`; }
+function renderStudentCustomize() { const s = state.user || state.students[0]; const tab = state.activeCustomizationTab; return `<div class="min-h-screen pb-20"><header class="bg-white/95 p-6"><div class="flex justify-between"><button onclick="navigate('student_home')" class="text-purple-600">← Voltar</button><h1 class="text-2xl font-bold">✨ Customizar</h1><button onclick="saveCharCustomization()" class="magic-bg text-white px-4 py-2 rounded-lg">💾 Salvar</button></div></header><div class="p-4"><div class="bg-gradient-to-r from-purple-100 to-pink-100 rounded-2xl p-8 mb-6 flex justify-center"><div class="animate-float">${getDetailedCharSVG(s.charData, 200)}</div></div><div class="bg-white/90 rounded-xl shadow-lg mb-4"><div class="flex border-b"><button onclick="state.activeCustomizationTab='hair'; render()" class="flex-1 py-3 ${tab === 'hair' ? 'text-purple-600 font-bold border-b-2 border-purple-600' : ''}">💇 Cabelo</button><button onclick="state.activeCustomizationTab='outfit'; render()" class="flex-1 py-3 ${tab === 'outfit' ? 'text-purple-600 font-bold border-b-2 border-purple-600' : ''}">👔 Roupa</button><button onclick="state.activeCustomizationTab='accessory'; render()" class="flex-1 py-3 ${tab === 'accessory' ? 'text-purple-600 font-bold border-b-2 border-purple-600' : ''}">⚔️ Acessório</button></div></div>${tab === 'hair' ? `<div class="bg-white/90 rounded-xl p-4"><h3 class="font-bold mb-3">Estilo</h3><div class="grid grid-cols-3 gap-2 mb-4">${state.hairStyles.map(style => `<button onclick="s.charData.hairStyle='${style.id}'; render()" class="p-3 rounded-lg border-2 text-center ${s.charData.hairStyle === style.id ? 'border-purple-600 bg-purple-50' : ''}"><span class="text-2xl">${style.icon}</span><span class="text-xs">${style.name}</span></button>`).join('')}</div><h3 class="font-bold mb-3">Cor</h3><div class="flex flex-wrap gap-2">${state.hairColors.map(c => `<button onclick="s.charData.hairColor='${c}'; render()" class="w-10 h-10 rounded-full border-2 ${s.charData.hairColor === c ? 'border-purple-600 scale-110' : ''}" style="background:${c}"></button>`).join('')}</div></div>` : tab === 'outfit' ? `<div class="bg-white/90 rounded-xl p-4"><h3 class="font-bold mb-3">Estilo</h3><div class="grid grid-cols-2 gap-2 mb-4">${state.outfitStyles.map(style => `<button onclick="s.charData.outfitStyle='${style.id}'; render()" class="p-3 rounded-lg border-2 text-center ${s.charData.outfitStyle === style.id ? 'border-purple-600 bg-purple-50' : ''}"><span class="text-2xl">${style.icon}</span><span class="text-sm">${style.name}</span></button>`).join('')}</div><h3 class="font-bold mb-3">Cor</h3><div class="flex flex-wrap gap-2">${state.outfitColors.map(c => `<button onclick="s.charData.outfitColor='${c}'; render()" class="w-10 h-10 rounded-full border-2 ${s.charData.outfitColor === c ? 'border-purple-600 scale-110' : ''}" style="background:${c}"></button>`).join('')}</div></div>` : `<div class="bg-white/90 rounded-xl p-4"><div class="grid grid-cols-3 gap-2">${state.accessories.map(acc => `<button onclick="s.charData.accessory='${acc.id}'; render()" class="p-4 rounded-lg border-2 text-center ${s.charData.accessory === acc.id ? 'border-purple-600 bg-purple-50' : ''}"><span class="text-3xl">${acc.icon}</span><span class="text-xs">${acc.name}</span></button>`).join('')}</div></div>`}</div><nav class="fixed bottom-0 w-full bg-white/95 border-t flex justify-around py-3"><button onclick="navigate('student_home')" class="text-gray-400">🏠</button><button onclick="navigate('student_tasks')" class="text-gray-400">📋</button><button onclick="navigate('student_customize')" class="text-purple-600">✨</button><button onclick="navigate('student_profile')" class="text-gray-400">👤</button></nav></div>`; }
+function renderStudentProfile() { const s = state.user || state.students[0]; const progress = Math.min((s.xp / s.xpToNextLevel) * 100, 100); const available = state.availableTitles.filter(t => t.minLevel <= s.level); const titleDisplay = getFullTitle(s); return `<div class="min-h-screen pb-20"><header class="magic-bg text-white p-6"><div class="flex justify-between"><h1 class="text-2xl font-bold">👤 Meu Perfil</h1><button onclick="handleLogout()" class="bg-red-500 px-4 py-2 rounded-lg">SAIR</button></div><div class="flex items-center gap-4 mt-4"><div class="w-20 h-20 bg-white rounded-full p-1">${getCharSVG(s.charData)}</div><div><h2 class="text-xl font-bold">${s.avatarName}</h2><p class="text-purple-200">${s.name}</p><div><span class="bg-white/20 px-2 py-0.5 rounded-full text-xs">Nível ${s.level}</span><span class="bg-white/20 px-2 py-0.5 rounded-full text-xs ml-2 animate-title-glow">${titleDisplay}</span></div></div></div></header><div class="p-4 space-y-4"><div class="bg-white/90 rounded-xl p-4"><h3 class="font-bold mb-3">📋 Informações</h3><div class="space-y-2 text-sm"><div class="flex justify-between"><span>Nome:</span><span class="font-bold">${s.name}</span></div><div class="flex justify-between"><span>RA:</span><span class="font-bold">${s.ra}</span></div><div class="flex justify-between"><span>Turma:</span><span class="font-bold">${s.class}</span></div></div></div><div class="bg-white/90 rounded-xl p-4"><h3 class="font-bold mb-3">⭐ Progresso</h3><div class="flex justify-between text-sm mb-2"><span>${s.xp} / ${s.xpToNextLevel} XP</span><span>${progress.toFixed(0)}%</span></div><div class="w-full bg-purple-200 rounded-full h-3"><div class="magic-bg h-3 rounded-full" style="width: ${progress}%"></div></div></div><div class="bg-white/90 rounded-xl p-4"><h3 class="font-bold mb-3">✨ Personalização</h3><div class="space-y-4"><div><label class="block text-sm font-bold mb-2">🎭 Nome do Avatar</label><input type="text" id="profile_avatar_name" value="${s.avatarName}" class="w-full p-3 border rounded-lg"></div><div><label class="block text-sm font-bold mb-2">🏆 Título</label><select id="profile_title" class="w-full p-3 border rounded-lg"><option value="">Selecione</option>${available.map(t => `<option value="${t.id}" ${s.title === t.id && !s.customTitle ? 'selected' : ''}>${t.icon} ${t.name}</option>`).join('')}<option value="custom" ${s.title === 'custom' ? 'selected' : ''}>✨ Personalizado</option></select></div><div id="custom_title_container" style="${s.title === 'custom' ? 'display:block' : 'display:none'}"><label class="block text-sm font-bold mb-2">✏️ Título Personalizado</label><input type="text" id="profile_custom_title" value="${s.customTitle || ''}" placeholder="Ex: Guardião das Estrelas" class="w-full p-3 border rounded-lg"></div><button onclick="saveStudentProfile()" class="btn-magic text-white px-6 py-3 rounded-lg font-bold w-full">💾 SALVAR</button></div></div></div><nav class="fixed bottom-0 w-full bg-white/95 border-t flex justify-around py-3"><button onclick="navigate('student_home')" class="text-gray-400">🏠</button><button onclick="navigate('student_tasks')" class="text-gray-400">📋</button><button onclick="navigate('student_customize')" class="text-gray-400">✨</button><button onclick="navigate('student_profile')" class="text-purple-600">👤</button></nav></div>`; }
+
+function renderLogin() { return `<div class="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-indigo-100 via-purple-100 to-pink-100"><div class="bg-white/90 backdrop-blur-sm p-8 rounded-2xl shadow-2xl w-full max-w-md animate-magic-glow"><div class="text-center mb-8"><div class="text-6xl mb-4 animate-float">🎮✨</div><h1 class="text-4xl font-bold magic-bg bg-clip-text text-transparent mb-2">EduQuest</h1><p class="text-gray-600">A aventura mágica do conhecimento!</p></div><div class="flex mb-6 space-x-2"><button onclick="state.userType='student'; render()" class="flex-1 py-3 rounded-lg font-bold transition-all ${state.userType === 'student' ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg' : 'bg-gray-100 text-gray-600'}">🎒 Aluno</button><button onclick="state.userType='teacher'; render()" class="flex-1 py-3 rounded-lg font-bold transition-all ${state.userType === 'teacher' ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg' : 'bg-gray-100 text-gray-600'}">👨‍🏫 Professor</button></div><div class="space-y-4"><input type="text" id="login_id" placeholder="${state.userType === 'teacher' ? 'CPF' : 'RA'}" class="w-full p-3 border-2 border-purple-200 rounded-lg"><input type="password" id="login_pass" placeholder="Senha" class="w-full p-3 border-2 border-purple-200 rounded-lg"><button onclick="handleLogin()" class="w-full magic-bg text-white py-4 rounded-lg font-bold text-lg">✨ ENTRAR ✨</button></div><div class="mt-6 p-4 bg-purple-50 rounded-lg text-xs"><p class="font-bold">🔮 Credenciais:</p><p>👩‍🎓 Aluno: RA 123 | Senha 123</p><p>👨‍🏫 Professor: CPF 123.456.789-00 | Senha 123456</p><p><a href="#" onclick="navigate('admin_login')" class="text-purple-600">🔧 Área Admin</a></p></div></div></div>`; }
+function renderAdminLogin() { return `<div class="min-h-screen flex items-center justify-center p-4"><div class="bg-white/90 backdrop-blur-sm p-8 rounded-2xl shadow-xl w-full max-w-md"><h1 class="text-2xl font-bold text-center mb-6 magic-bg bg-clip-text text-transparent">Admin EduQuest</h1><div class="space-y-4"><input type="email" id="admin_email" placeholder="E-mail" class="w-full p-3 border rounded-lg"><input type="password" id="admin_pass" placeholder="Senha" class="w-full p-3 border rounded-lg"><button onclick="handleAdminLogin()" class="w-full magic-bg text-white py-3 rounded-lg font-bold">ENTRAR</button></div><button onclick="navigate('login')" class="mt-4 text-gray-500">← Voltar</button></div></div>`; }
+
+function render() { const app = document.getElementById('app'); if (!app) return; const views = { login: renderLogin, admin_login: renderAdminLogin, admin_dashboard: renderAdminDashboard, teacher_home: renderTeacherHome, teacher_subject: renderTeacherSubject, teacher_bimester: renderTeacherBimester, teacher_week: renderTeacherWeek, teacher_create_task: renderCreateTask, teacher_create_questions: renderCreateQuestions, teacher_task_detail: renderTaskDetail, teacher_classes: renderTeacherClasses, teacher_student_detail: renderTeacherStudentDetail, teacher_student_answers: renderTeacherStudentAnswers, student_home: renderStudentHome, student_tasks: renderStudentTasks, student_do_task: renderDoTask, student_customize: renderStudentCustomize, student_profile: renderStudentProfile }; app.innerHTML = views[state.currentView] ? views[state.currentView]() : renderLogin(); const titleSelect = document.getElementById('profile_title'); if (titleSelect) titleSelect.onchange = function() { const ct = document.getElementById('custom_title_container'); if (ct) ct.style.display = this.value === 'custom' ? 'block' : 'none'; }; }
+
+window.state = state; window.navigate = navigate; window.handleLogin = handleLogin; window.handleAdminLogin = handleAdminLogin; window.handleLogout = handleLogout;
+window.saveMissionAndContinue = saveMissionAndContinue; window.addQuestion = addQuestion; window.removeQuestion = removeQuestion; window.finishMission = finishMission;
+window.saveMissionDirectly = saveMissionDirectly; window.submitTask = submitTask; window.saveStudentProfile = saveStudentProfile; window.saveCharCustomization = saveCharCustomization;
+window.addSubject = addSubject; window.deleteSubject = deleteSubject; window.addTeacher = addTeacher; window.deleteTeacher = deleteTeacher;
+window.addClass = addClass; window.deleteClass = deleteClass; window.addStudent = addStudent; window.deleteStudent = deleteStudent;
+window.viewStudentAnswers = viewStudentAnswers;
+
+render();
+console.log('✨ EduQuest Mágico iniciado! ✨');
+</script>
 </body>
 </html>
